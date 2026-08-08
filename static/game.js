@@ -2,6 +2,13 @@
 // directa del DOM. Todo el estado real vive en el servidor (sesión Flask);
 // acá solo pintamos lo que /api/* devuelve.
 
+const pantallaIntro = document.getElementById("pantalla-intro");
+const introCapaCalle = document.getElementById("intro-capa-calle");
+const introCapaExplosion = document.getElementById("intro-capa-explosion");
+const introCapaAereo = document.getElementById("intro-capa-aereo");
+const introCargando = document.getElementById("intro-cargando");
+const btnSaltarIntro = document.getElementById("btn-saltar-intro");
+
 const pantallaAlta = document.getElementById("pantalla-alta");
 const pantallaJuego = document.getElementById("pantalla-juego");
 const formAlta = document.getElementById("form-alta");
@@ -58,6 +65,116 @@ function mostrarPantallaAlta() {
   pantallaJuego.hidden = true;
   pantallaAlta.hidden = false;
 }
+
+// --- Cutscene de apertura ---------------------------------------------
+// Tiene que coincidir con var(--duracion-intro) de static/style.css.
+const DURACION_INTRO_MS = 6500;
+let introTimeoutId = null;
+
+function prefiereMovimientoReducido() {
+  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function finalizarIntro() {
+  if (introTimeoutId) {
+    clearTimeout(introTimeoutId);
+    introTimeoutId = null;
+  }
+  sessionStorage.setItem("introVista", "1");
+  pantallaIntro.classList.remove("intro-reproduciendo");
+  pantallaIntro.hidden = true;
+  mostrarPantallaAlta();
+}
+
+function precargarImagen(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(url);
+    img.onerror = () => reject(new Error(`no se pudo cargar ${url}`));
+    img.src = url;
+  });
+}
+
+function esperar(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function precargarConReintento(url, intentos = 3, esperaMs = 1500) {
+  for (let intento = 1; intento <= intentos; intento++) {
+    try {
+      return await precargarImagen(url);
+    } catch (err) {
+      if (intento === intentos) throw err;
+      await esperar(esperaMs);
+    }
+  }
+}
+
+// Pollinations.ai (plan gratuito) solo permite 1 request en cola por IP:
+// pedir las tres imágenes en paralelo dispara "Too Many Requests". Hay que
+// pedirlas una por una, en secuencia.
+async function precargarSecuencial(urls) {
+  const resultados = [];
+  for (const url of urls) {
+    resultados.push(await precargarConReintento(url));
+  }
+  return resultados;
+}
+
+function esperarConTimeout(promesa, ms) {
+  return Promise.race([
+    promesa,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
+}
+
+async function reproducirIntro() {
+  if (sessionStorage.getItem("introVista") === "1" || prefiereMovimientoReducido()) {
+    pantallaIntro.hidden = true;
+    mostrarPantallaAlta();
+    return;
+  }
+
+  pantallaIntro.hidden = false;
+  introCargando.hidden = false;
+
+  let frames;
+  try {
+    frames = await apiGet("/api/intro");
+  } catch (err) {
+    pantallaIntro.hidden = true;
+    mostrarPantallaAlta();
+    return;
+  }
+
+  // Cada imagen puede tardar varios segundos en generarse y se piden de a
+  // una (ver precargarSecuencial). Si tarda demasiado o falla, saltamos
+  // directo al menú en vez de dejar al jugador esperando indefinidamente.
+  try {
+    await esperarConTimeout(
+      precargarSecuencial([frames.calle, frames.explosion, frames.aereo]),
+      45000,
+    );
+  } catch (err) {
+    pantallaIntro.hidden = true;
+    introCargando.hidden = true;
+    mostrarPantallaAlta();
+    return;
+  }
+
+  introCapaCalle.style.backgroundImage = `url("${frames.calle}")`;
+  introCapaExplosion.style.backgroundImage = `url("${frames.explosion}")`;
+  introCapaAereo.style.backgroundImage = `url("${frames.aereo}")`;
+  introCargando.hidden = true;
+
+  // Forzar reflow para que el navegador registre el estado inicial antes de
+  // agregar la clase que dispara las animaciones (si no, a veces no arrancan).
+  void pantallaIntro.offsetWidth;
+  pantallaIntro.classList.add("intro-reproduciendo");
+  introTimeoutId = setTimeout(finalizarIntro, DURACION_INTRO_MS);
+}
+
+btnSaltarIntro.addEventListener("click", finalizarIntro);
 
 function renderVista(vista) {
   errorAccion.hidden = true;
@@ -186,16 +303,24 @@ btnReiniciar.addEventListener("click", async () => {
   mostrarPantallaAlta();
 });
 
-// Al cargar la página, si ya había una partida en curso en esta sesión
-// (por ejemplo, el usuario recargó el navegador), la retomamos donde estaba.
+// Al cargar la página: si ya había una partida en curso en esta sesión (por
+// ejemplo, recargaste el navegador), la retomamos directo, sin repetir la
+// cutscene. Si no, mostramos la intro y de ahí pasamos al alta de personaje.
 (async function inicializar() {
+  let datos = null;
   try {
-    const datos = await apiGet("/api/estado");
-    if (datos.activo) {
-      mostrarPantallaJuego();
-      renderVista(datos.vista);
-    }
+    datos = await apiGet("/api/estado");
   } catch (err) {
-    // Si falla, simplemente arrancamos desde la pantalla de alta de personaje.
+    datos = null;
   }
+
+  if (datos && datos.activo) {
+    sessionStorage.setItem("introVista", "1");
+    pantallaIntro.hidden = true;
+    mostrarPantallaJuego();
+    renderVista(datos.vista);
+    return;
+  }
+
+  reproducirIntro();
 })();

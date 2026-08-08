@@ -57,3 +57,43 @@ def markdown_de_imagen(escena_en_ingles: str, alt_texto: str = "Escena", **kwarg
     """Devuelve la línea Markdown lista para imprimir/mostrar."""
     url = build_pollinations_url(escena_en_ingles, **kwargs)
     return f"![{alt_texto}]({url})"
+
+
+# ---------------------------------------------------------------------------
+# Estilo alternativo para la cutscene de apertura.
+#
+# ESTILO_PREFIJO (arriba) nombra títulos puntuales ("Leisure Suit Larry",
+# "King's Quest", "Space Quest"): probado empíricamente, esas referencias
+# dominan tanto la composición que Pollinations devuelve casi siempre la
+# misma escena genérica de personaje-parado-frente-a-una-puerta sin importar
+# qué se pida (validado con múltiples seeds y descripciones). Para escenas
+# muy específicas como la del disturbio/Casa Rosada de la intro, conviene un
+# estilo igual de "pixel art retro" pero descrito por género en vez de por
+# título, que sí sigue el contenido pedido.
+# ---------------------------------------------------------------------------
+
+ESTILO_CUTSCENE_PREFIJO = (
+    "cinematic 16-bit pixel art video game screenshot, dithering, limited retro "
+    "color palette, dramatic lighting, detailed pixel art illustration"
+)
+ESTILO_CUTSCENE_SUFIJO = "retro pixel art video game cutscene"
+
+
+def build_pollinations_url_cinematica(
+    escena_en_ingles: str,
+    ancho: int = 800,
+    alto: int = 400,
+    seed: int | None = None,
+) -> str:
+    """Como build_pollinations_url, pero con el estilo alternativo de arriba."""
+    if seed is None:
+        seed = random.randint(1, 999_999)
+
+    escena = escena_en_ingles.strip().rstrip(".")
+    prompt = f"{ESTILO_CUTSCENE_PREFIJO}, {escena}, {ESTILO_CUTSCENE_SUFIJO}"
+    prompt_codificado = urllib.parse.quote(prompt, safe="")
+
+    return (
+        f"{BASE_URL}{prompt_codificado}"
+        f"?width={ancho}&height={alto}&nologo=true&seed={seed}"
+    )

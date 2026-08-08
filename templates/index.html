@@ -19,8 +19,28 @@
 
     <main class="pantalla">
 
+      <!-- Cutscene de apertura (estilo intro de recreativo) -->
+      <section id="pantalla-intro" class="panel-intro">
+        <div class="intro-viewport">
+          <div class="intro-capa" id="intro-capa-calle"></div>
+          <div class="intro-capa" id="intro-capa-explosion"></div>
+          <div class="intro-capa" id="intro-capa-aereo"></div>
+          <div class="intro-heli" id="intro-heli">
+            <div class="intro-heli-cuerpo"></div>
+            <div class="intro-heli-cola"></div>
+            <div class="intro-heli-rotor"></div>
+          </div>
+          <div class="intro-flash"></div>
+          <div class="intro-scanlines"></div>
+          <p class="intro-cargando" id="intro-cargando">CARGANDO ESCENA...</p>
+          <p class="intro-caption" id="intro-caption">DICIEMBRE DE 2001</p>
+          <div class="intro-negro" id="intro-negro"></div>
+        </div>
+        <button type="button" id="btn-saltar-intro" class="boton-secundario intro-saltar">SALTAR INTRO ▶</button>
+      </section>
+
       <!-- Alta de personaje -->
-      <section id="pantalla-alta" class="panel-juego">
+      <section id="pantalla-alta" class="panel-juego" hidden>
         <p class="intro-texto">
           Diciembre de 2001. El Corralito, los Patacones, las asambleas, los cacerolazos.
           Antes de arrancar necesito algunos datos tuyos. No hace falta que uses los

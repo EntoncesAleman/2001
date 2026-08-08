@@ -8,6 +8,7 @@
   --verde: #7bd88f;
   --fuente-titulo: "Press Start 2P", monospace;
   --fuente-texto: "VT323", monospace;
+  --duracion-intro: 6.5s;
 }
 
 * {
@@ -251,5 +252,265 @@ button:active {
   }
   .panel-juego {
     padding: 1rem;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Cutscene de apertura ("intro de recreativo", estilo Street Fighter II): */
+/* calle en llamas con la Casa Rosada de fondo -> explosión -> plano       */
+/* aéreo con un helicóptero yéndose -> fundido a negro -> menú.            */
+/* La duración total (var(--duracion-intro)) tiene que coincidir con la    */
+/* constante DURACION_INTRO_MS de static/game.js.                         */
+/* ---------------------------------------------------------------------- */
+
+.panel-intro {
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+  border: 3px solid var(--azul-borde);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px #000, 0 0 24px rgba(30, 58, 122, 0.6);
+}
+
+.intro-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.intro-capa {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  image-rendering: pixelated;
+}
+
+.intro-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(255, 205, 130, 0.95) 0%,
+    rgba(255, 120, 40, 0.65) 45%,
+    rgba(0, 0, 0, 0) 80%
+  );
+}
+
+.intro-scanlines {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 2px,
+    transparent 3px
+  );
+}
+
+.intro-cargando {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 7;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  font-family: var(--fuente-titulo);
+  font-size: clamp(0.55rem, 2.6vw, 0.85rem);
+  letter-spacing: 0.1em;
+  color: #7f93d1;
+  animation: introCargandoParpadeo 1.1s steps(2) infinite;
+}
+
+@keyframes introCargandoParpadeo {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.intro-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 10%;
+  z-index: 7;
+  margin: 0;
+  opacity: 0;
+  transform: translateX(-50%);
+  font-family: var(--fuente-titulo);
+  font-size: clamp(0.55rem, 2.6vw, 1rem);
+  letter-spacing: 0.12em;
+  color: var(--blanco-pixel);
+  text-shadow: 2px 2px 0 #000;
+}
+
+.intro-negro {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  opacity: 0;
+  background: #000;
+}
+
+.intro-heli {
+  position: absolute;
+  left: 8%;
+  top: 55%;
+  z-index: 5;
+  width: 80px;
+  height: 40px;
+  opacity: 0;
+}
+
+.intro-heli-cuerpo {
+  position: absolute;
+  left: 18px;
+  top: 14px;
+  width: 46px;
+  height: 16px;
+  background: #0a0d16;
+  border-radius: 8px 14px 10px 6px;
+}
+
+.intro-heli-cola {
+  position: absolute;
+  left: 0;
+  top: 18px;
+  width: 24px;
+  height: 6px;
+  background: #0a0d16;
+}
+
+.intro-heli-rotor {
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  width: 68px;
+  height: 3px;
+  background: #0a0d16;
+  animation: introRotorChop 0.12s steps(2) infinite;
+}
+
+.intro-saltar {
+  display: block;
+  margin: 0.8rem auto 0;
+}
+
+@keyframes introRotorChop {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.15); }
+}
+
+@keyframes introCapaCalle {
+  0%   { opacity: 1; transform: scale(1) translateY(0); }
+  27%  { opacity: 1; transform: scale(1.12) translateY(-1%); }
+  31%  { opacity: 0; transform: scale(1.14) translateY(-1.2%); }
+  100% { opacity: 0; }
+}
+
+@keyframes introCapaExplosion {
+  0%, 27% { opacity: 0; transform: scale(1); }
+  29%  { opacity: 1; transform: scale(1.02); }
+  44%  { opacity: 1; transform: scale(1.06); }
+  47%  { opacity: 0; transform: scale(1.08); }
+  100% { opacity: 0; }
+}
+
+@keyframes introCapaAereo {
+  0%, 44% { opacity: 0; transform: scale(1.35) translateY(2%); }
+  47%  { opacity: 1; transform: scale(1.3) translateY(1%); }
+  77%  { opacity: 1; transform: scale(1) translateY(-4%); }
+  100% { opacity: 1; transform: scale(0.96) translateY(-5%); }
+}
+
+@keyframes introShake {
+  0%, 28%   { transform: translate(0, 0); }
+  29%       { transform: translate(-6px, 3px); }
+  30%       { transform: translate(5px, -4px); }
+  31%       { transform: translate(-4px, 5px); }
+  32%       { transform: translate(6px, -3px); }
+  33%       { transform: translate(-3px, 2px); }
+  34%       { transform: translate(4px, -5px); }
+  36%       { transform: translate(-2px, 2px); }
+  38%       { transform: translate(2px, -1px); }
+  40%, 100% { transform: translate(0, 0); }
+}
+
+@keyframes introFlash {
+  0%, 27% { opacity: 0; }
+  28%     { opacity: 0.9; }
+  30%     { opacity: 0.5; }
+  33%, 100% { opacity: 0; }
+}
+
+@keyframes introHeli {
+  0%, 49% { opacity: 0; transform: translate(-10%, 40%) scale(0.6); }
+  51%     { opacity: 1; transform: translate(10%, 20%) scale(0.7); }
+  70%     { opacity: 1; transform: translate(85%, -30%) scale(0.5); }
+  76%, 100% { opacity: 0; transform: translate(110%, -55%) scale(0.4); }
+}
+
+@keyframes introCaption {
+  0%, 46%   { opacity: 0; }
+  50%, 85%  { opacity: 1; }
+  92%, 100% { opacity: 0; }
+}
+
+@keyframes introNegro {
+  0%, 75%  { opacity: 0; }
+  90%, 100% { opacity: 1; }
+}
+
+.intro-reproduciendo .intro-viewport {
+  animation: introShake var(--duracion-intro) steps(1) 1 both;
+}
+
+.intro-reproduciendo #intro-capa-calle {
+  animation: introCapaCalle var(--duracion-intro) ease-in-out 1 both;
+}
+
+.intro-reproduciendo #intro-capa-explosion {
+  animation: introCapaExplosion var(--duracion-intro) ease-in-out 1 both;
+}
+
+.intro-reproduciendo #intro-capa-aereo {
+  animation: introCapaAereo var(--duracion-intro) ease-in-out 1 both;
+}
+
+.intro-reproduciendo .intro-flash {
+  animation: introFlash var(--duracion-intro) linear 1 both;
+}
+
+.intro-reproduciendo .intro-heli {
+  animation: introHeli var(--duracion-intro) linear 1 both;
+}
+
+.intro-reproduciendo .intro-caption {
+  animation: introCaption var(--duracion-intro) linear 1 both;
+}
+
+.intro-reproduciendo .intro-negro {
+  animation: introNegro var(--duracion-intro) linear 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-reproduciendo .intro-viewport,
+  .intro-reproduciendo #intro-capa-calle,
+  .intro-reproduciendo #intro-capa-explosion,
+  .intro-reproduciendo #intro-capa-aereo,
+  .intro-reproduciendo .intro-flash,
+  .intro-reproduciendo .intro-heli,
+  .intro-reproduciendo .intro-caption,
+  .intro-reproduciendo .intro-negro,
+  .intro-heli-rotor {
+    animation: none !important;
   }
 }

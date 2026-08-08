@@ -21,7 +21,7 @@ from flask import Flask, jsonify, render_template, request, session
 # script suelto (`python3 api/index.py`) sin duplicar el paquete `game`.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from game import engine  # noqa: E402
+from game import engine, images  # noqa: E402
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -49,6 +49,42 @@ def _guardar_estado_en_sesion(estado) -> None:
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+# Fotogramas fijos de la cutscene de apertura (estilo "intro de recreativo",
+# tipo Street Fighter II: caos en la calle -> explosión -> plano aéreo con
+# helicóptero yéndose -> fundido a negro -> menú). Usan la misma función y
+# el mismo estilo visual (`images.build_pollinations_url`) que el resto del
+# juego, con seeds fijas para que la escena no cambie en cada carga.
+@app.route("/api/intro")
+def api_intro():
+    # Nota: "Casa Rosada" como nombre propio no lo reconoce bien el modelo de
+    # Pollinations (devuelve escenas genéricas sin relación); describirla
+    # visualmente ("pink colonial government palace with a central dome") da
+    # resultados mucho más fieles. Y estas tres usan el estilo "cinemático"
+    # (build_pollinations_url_cinematica) en vez del estilo compartido del
+    # resto del juego, porque ese estilo ignora el contenido pedido (ver
+    # comentario junto a esa función en game/images.py).
+    return jsonify({
+        "calle": images.build_pollinations_url_cinematica(
+            "huge angry riot crowd clashing at night in the plaza in front of a pink "
+            "colonial government palace with a central dome, burning barricades, thick "
+            "smoke, cacerolazo protesters banging pots, dramatic wide establishing shot",
+            ancho=960, alto=540, seed=555,
+        ),
+        "explosion": images.build_pollinations_url_cinematica(
+            "a riot barricade exploding into a bright orange fireball with flying debris "
+            "at night, crowd running away in panic, the same pink colonial palace with a "
+            "dome in the background, intense violent action moment",
+            ancho=960, alto=540, seed=555,
+        ),
+        "aereo": images.build_pollinations_url_cinematica(
+            "high aerial view from a helicopter flying over a burning city plaza at night, "
+            "riot crowd below, the pink colonial palace with its dome glowing under the "
+            "fires, smoke rising, dramatic wide shot from above",
+            ancho=960, alto=540, seed=555,
+        ),
+    })
 
 
 @app.route("/api/estado", methods=["GET"])
