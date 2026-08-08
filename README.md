@@ -32,9 +32,10 @@ pip install -r requirements.txt
 - `rich` — interfaz de consola (colores, paneles, prompts).
 - `requests` — llamadas HTTP (usado si activás la descarga de imágenes, ver más abajo).
 - `Flask` — el servidor web para la variante navegador/Vercel.
-- `anthropic` — opcional, solo se usa si configurás `ANTHROPIC_API_KEY` (ver sección 4).
+- `anthropic` / `google-genai` — opcionales, solo se usan si configurás
+  `ANTHROPIC_API_KEY` o `GEMINI_API_KEY` respectivamente (ver sección 4).
 
-No es obligatorio instalar `anthropic` ni tener API key: **el juego funciona
+No es obligatorio instalar ninguno de los dos ni tener API key: **el juego funciona
 completo sin ninguna clave**, con un motor narrativo de nodos con estado
 propio y un intérprete de texto libre por palabras clave.
 
@@ -81,24 +82,31 @@ export SECRET_KEY="una-clave-larga-y-random-tuya"
 
 ---
 
-## 4. (Opcional) Narración enriquecida con Claude
+## 4. (Opcional) Narración enriquecida con un LLM
 
 El intérprete de acciones libres (`game/free_text.py`) ya resuelve
 mecánicamente cualquier texto que escriba el jugador (efectos en salud,
 dinero, reputación, etc.) con narración propia en rioplatense. Si además
-configurás una API key de Anthropic, esa narración se reemplaza por una
-generada por Claude — los efectos mecánicos **no cambian**, solo mejora el
-texto:
+configurás una API key de **Anthropic (Claude)** o de **Google (Gemini)**,
+esa narración se reemplaza por una generada por el modelo — los efectos
+mecánicos **no cambian**, solo mejora el texto. Elegí uno de los dos:
 
 ```bash
+# Opción A: Claude
 export ANTHROPIC_API_KEY="sk-ant-..."
-# opcional, por defecto usa claude-sonnet-5:
-export ANTHROPIC_MODEL="claude-sonnet-5"
+export ANTHROPIC_MODEL="claude-sonnet-5"   # opcional, es el default
+
+# Opción B: Gemini
+export GEMINI_API_KEY="AIza..."             # la sacás de https://aistudio.google.com/apikey
+export GEMINI_MODEL="gemini-2.5-flash"      # opcional, es el default
 ```
 
+Si tenés las dos keys configuradas a la vez, se usa Anthropic por defecto;
+podés forzar cuál usar con `export LLM_PROVIDER="gemini"` (o `"anthropic"`).
+
 Si no configurás nada, o falla la llamada por cualquier motivo (sin
-conexión, rate limit, etc.), el juego sigue funcionando con la narración
-local sin ningún error visible para el jugador.
+conexión, rate limit, key inválida, etc.), el juego sigue funcionando con
+la narración local sin ningún error visible para el jugador.
 
 ---
 
@@ -115,8 +123,8 @@ vercel --prod        # deploy de producción
 ```
 
 Después de vincular el proyecto, seteá la variable de entorno `SECRET_KEY`
-(y opcionalmente `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`) desde el dashboard
-de Vercel o con:
+(y opcionalmente `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` o `GEMINI_API_KEY` /
+`GEMINI_MODEL`, ver sección 4) desde el dashboard de Vercel o con:
 
 ```bash
 vercel env add SECRET_KEY production

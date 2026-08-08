@@ -1,12 +1,18 @@
-"""Narración opcional de acciones libres vía la API de Anthropic (Claude).
+"""Narración opcional de acciones libres vía un LLM externo (Claude o Gemini).
 
-Esto es 100% opcional: si no está instalado el paquete `anthropic` o no hay
-`ANTHROPIC_API_KEY` en el entorno, el juego sigue funcionando perfectamente
-con el intérprete de palabras clave de `game/free_text.py`. Cuando el LLM
-está disponible, se usa únicamente para reescribir el *texto* narrado de una
+Esto es 100% opcional: si no hay ninguna API key configurada (o falta el
+paquete correspondiente), el juego sigue funcionando perfectamente con el
+intérprete de palabras clave de `game/free_text.py`. Cuando el LLM está
+disponible, se usa únicamente para reescribir el *texto* narrado de una
 acción libre — los efectos mecánicos (salud, dinero, reputación) ya fueron
 calculados antes y no se tocan, para que el juego nunca dependa de que la
 API responda algo "parseable".
+
+Proveedor usado (auto-detectado por qué variable de entorno esté seteada,
+o forzado con LLM_PROVIDER=anthropic|gemini si tenés las dos):
+
+- Anthropic (Claude): ANTHROPIC_API_KEY [+ ANTHROPIC_MODEL opcional]
+- Google Gemini:      GEMINI_API_KEY    [+ GEMINI_MODEL opcional]
 """
 
 from __future__ import annotations
@@ -28,18 +34,84 @@ SYSTEM_PROMPT = (
     "mecánico que ya te paso (no lo contradigas, simplemente narralo)."
 )
 
-MODELO_POR_DEFECTO = "claude-sonnet-5"
+MODELO_ANTHROPIC_POR_DEFECTO = "claude-sonnet-5"
+MODELO_GEMINI_POR_DEFECTO = "gemini-2.5-flash"
+
+
+def _proveedor_activo() -> Optional[str]:
+    """Decide qué proveedor usar según las variables de entorno presentes."""
+    forzado = os.environ.get("LLM_PROVIDER", "").strip().lower()
+    if forzado in ("anthropic", "claude"):
+        return "anthropic" if os.environ.get("ANTHROPIC_API_KEY") else None
+    if forzado in ("gemini", "google"):
+        return "gemini" if os.environ.get("GEMINI_API_KEY") else None
+
+    # Sin forzar nada: el que tenga la key seteada, priorizando Anthropic
+    # si por algún motivo estuvieran las dos.
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic"
+    if os.environ.get("GEMINI_API_KEY"):
+        return "gemini"
+    return None
 
 
 def modelo_configurado() -> bool:
     """True si hay todo lo necesario para intentar una llamada real a la API."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return False
-    try:
-        import anthropic  # noqa: F401
-    except ImportError:
-        return False
-    return True
+    proveedor = _proveedor_activo()
+    if proveedor == "anthropic":
+        try:
+            import anthropic  # noqa: F401
+        except ImportError:
+            return False
+        return True
+    if proveedor == "gemini":
+        try:
+            from google import genai  # noqa: F401
+        except ImportError:
+            return False
+        return True
+    return False
+
+
+def _mensaje_usuario(contexto_escena: str, ubicacion: str, accion_jugador: str, resultado_mecanico: str) -> str:
+    return (
+        f"Escena actual: {contexto_escena}\n"
+        f"Ubicación: {ubicacion}\n"
+        f'El jugador decide, por su cuenta: "{accion_jugador}"\n'
+        f"Resultado mecánico ya definido (narralo, no lo cambies): {resultado_mecanico}"
+    )
+
+
+def _generar_con_anthropic(mensaje_usuario: str) -> Optional[str]:
+    import anthropic
+
+    cliente = anthropic.Anthropic()
+    respuesta = cliente.messages.create(
+        model=os.environ.get("ANTHROPIC_MODEL", MODELO_ANTHROPIC_POR_DEFECTO),
+        max_tokens=300,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": mensaje_usuario}],
+    )
+    bloques = [b.text for b in respuesta.content if getattr(b, "type", "") == "text"]
+    texto = "\n".join(bloques).strip()
+    return texto or None
+
+
+def _generar_con_gemini(mensaje_usuario: str) -> Optional[str]:
+    from google import genai
+    from google.genai import types
+
+    cliente = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    respuesta = cliente.models.generate_content(
+        model=os.environ.get("GEMINI_MODEL", MODELO_GEMINI_POR_DEFECTO),
+        contents=mensaje_usuario,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            max_output_tokens=300,
+        ),
+    )
+    texto = (getattr(respuesta, "text", None) or "").strip()
+    return texto or None
 
 
 def generar_narracion_libre(
@@ -48,35 +120,25 @@ def generar_narracion_libre(
     accion_jugador: str,
     resultado_mecanico: str,
 ) -> Optional[str]:
-    """Devuelve una narración generada por Claude, o None si no se puede.
+    """Devuelve una narración generada por el LLM activo, o None si no se puede.
 
     `resultado_mecanico` es una descripción corta en castellano de lo que ya
     se decidió mecánicamente (p. ej. "pierde 15 de salud, gana reputación
     barrial"), para que el modelo lo narre sin inventar otro desenlace.
     """
-    if not modelo_configurado():
+    proveedor = _proveedor_activo()
+    if proveedor is None or not modelo_configurado():
         return None
 
-    try:
-        import anthropic
+    mensaje = _mensaje_usuario(contexto_escena, ubicacion, accion_jugador, resultado_mecanico)
 
-        cliente = anthropic.Anthropic()
-        mensaje_usuario = (
-            f"Escena actual: {contexto_escena}\n"
-            f"Ubicación: {ubicacion}\n"
-            f'El jugador decide, por su cuenta: "{accion_jugador}"\n'
-            f"Resultado mecánico ya definido (narralo, no lo cambies): {resultado_mecanico}"
-        )
-        respuesta = cliente.messages.create(
-            model=os.environ.get("ANTHROPIC_MODEL", MODELO_POR_DEFECTO),
-            max_tokens=300,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": mensaje_usuario}],
-        )
-        bloques = [b.text for b in respuesta.content if getattr(b, "type", "") == "text"]
-        texto = "\n".join(bloques).strip()
-        return texto or None
+    try:
+        if proveedor == "anthropic":
+            return _generar_con_anthropic(mensaje)
+        if proveedor == "gemini":
+            return _generar_con_gemini(mensaje)
     except Exception:
         # Cualquier problema de red, autenticación, rate-limit, etc.: el
         # juego sigue con la narración de free_text.py sin explotar.
         return None
+    return None
