@@ -1,18 +1,23 @@
-"""Narración opcional de acciones libres vía un LLM externo (Claude o Gemini).
+"""Narración de cada turno vía un LLM externo (Gemini o Claude), con el motor
+de nodos propio (game/story.py + game/free_text.py) como último recurso.
 
-Esto es 100% opcional: si no hay ninguna API key configurada (o falta el
-paquete correspondiente), el juego sigue funcionando perfectamente con el
-intérprete de palabras clave de `game/free_text.py`. Cuando el LLM está
-disponible, se usa únicamente para reescribir el *texto* narrado de una
-acción libre — los efectos mecánicos (salud, dinero, reputación) ya fueron
-calculados antes y no se tocan, para que el juego nunca dependa de que la
-API responda algo "parseable".
+Gemini (o Claude) es el narrador principal: cuando hay una API key
+configurada, se le pide que redacte el texto que lee el jugador — tanto para
+las opciones numeradas como para las acciones libres. Los efectos mecánicos
+(salud, dinero, reputación, a qué nodo se pasa) los decide siempre el motor
+de juego ANTES de llamar al LLM y nunca cambian según lo que responda: el
+LLM solo dramatiza un resultado ya definido, nunca lo inventa. Si no hay
+ninguna key configurada, o falla la llamada por cualquier motivo (sin
+conexión, rate limit, key inválida), se usa el texto fijo de game/story.py
+(o el de game/free_text.py para acciones libres) — esa es la razón de ser
+del motor de nodos: garantizar que el juego sea 100% jugable sin ninguna
+API, no reemplazar al LLM cuando sí está disponible.
 
 Proveedor usado (auto-detectado por qué variable de entorno esté seteada,
-o forzado con LLM_PROVIDER=anthropic|gemini si tenés las dos):
+priorizando Gemini si tenés las dos, o forzado con LLM_PROVIDER=gemini|anthropic):
 
-- Anthropic (Claude): ANTHROPIC_API_KEY [+ ANTHROPIC_MODEL opcional]
 - Google Gemini:      GEMINI_API_KEY    [+ GEMINI_MODEL opcional]
+- Anthropic (Claude): ANTHROPIC_API_KEY [+ ANTHROPIC_MODEL opcional]
 """
 
 from __future__ import annotations
@@ -46,12 +51,12 @@ def _proveedor_activo() -> Optional[str]:
     if forzado in ("gemini", "google"):
         return "gemini" if os.environ.get("GEMINI_API_KEY") else None
 
-    # Sin forzar nada: el que tenga la key seteada, priorizando Anthropic
-    # si por algún motivo estuvieran las dos.
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return "anthropic"
+    # Sin forzar nada: el que tenga la key seteada, priorizando Gemini si
+    # por algún motivo estuvieran las dos.
     if os.environ.get("GEMINI_API_KEY"):
         return "gemini"
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic"
     return None
 
 
@@ -114,7 +119,7 @@ def _generar_con_gemini(mensaje_usuario: str) -> Optional[str]:
     return texto or None
 
 
-def generar_narracion_libre(
+def generar_narracion(
     contexto_escena: str,
     ubicacion: str,
     accion_jugador: str,
@@ -122,9 +127,12 @@ def generar_narracion_libre(
 ) -> Optional[str]:
     """Devuelve una narración generada por el LLM activo, o None si no se puede.
 
-    `resultado_mecanico` es una descripción corta en castellano de lo que ya
-    se decidió mecánicamente (p. ej. "pierde 15 de salud, gana reputación
-    barrial"), para que el modelo lo narre sin inventar otro desenlace.
+    Sirve tanto para acciones libres como para opciones numeradas: en ambos
+    casos el motor de juego ya decidió los efectos y el nodo/destino antes de
+    llamar acá. `resultado_mecanico` describe en castellano ese resultado ya
+    fijado (p. ej. "pasa a la fila del banco" o "pierde 15 de salud, gana
+    reputación barrial, avanza a la represión"), para que el modelo lo narre
+    en su propio estilo sin inventar un desenlace distinto.
     """
     proveedor = _proveedor_activo()
     if proveedor is None or not modelo_configurado():

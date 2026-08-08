@@ -61,24 +61,21 @@ def api_intro():
     # Nota: "Casa Rosada" como nombre propio no lo reconoce bien el modelo de
     # Pollinations (devuelve escenas genéricas sin relación); describirla
     # visualmente ("pink colonial government palace with a central dome") da
-    # resultados mucho más fieles. Y estas tres usan el estilo "cinemático"
-    # (build_pollinations_url_cinematica) en vez del estilo compartido del
-    # resto del juego, porque ese estilo ignora el contenido pedido (ver
-    # comentario junto a esa función en game/images.py).
+    # resultados mucho más fieles.
     return jsonify({
-        "calle": images.build_pollinations_url_cinematica(
+        "calle": images.build_pollinations_url(
             "huge angry riot crowd clashing at night in the plaza in front of a pink "
             "colonial government palace with a central dome, burning barricades, thick "
             "smoke, cacerolazo protesters banging pots, dramatic wide establishing shot",
             ancho=960, alto=540, seed=555,
         ),
-        "explosion": images.build_pollinations_url_cinematica(
+        "explosion": images.build_pollinations_url(
             "a riot barricade exploding into a bright orange fireball with flying debris "
             "at night, crowd running away in panic, the same pink colonial palace with a "
             "dome in the background, intense violent action moment",
             ancho=960, alto=540, seed=555,
         ),
-        "aereo": images.build_pollinations_url_cinematica(
+        "aereo": images.build_pollinations_url(
             "high aerial view from a helicopter flying over a burning city plaza at night, "
             "riot crowd below, the pink colonial palace with its dome glowing under the "
             "fires, smoke rising, dramatic wide shot from above",

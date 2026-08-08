@@ -65,8 +65,6 @@ def elegir_final(estado: EstadoJugador) -> str:
     if categoria == "negocio" and estado.tiene_flag("defendiste_comercio"):
         return "final_objetivo_cumplido"
 
-    if estado.tiene_flag("decidio_huir"):
-        return "final_huida"
     if estado.reputacion_barrial >= 15:
         return "final_comunidad"
     return "final_solitario"
@@ -188,7 +186,33 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
     vista = vista_actual(estado)
     if opcion.mensaje_efecto:
         vista["mensaje_efecto"] = opcion.mensaje_efecto
+
+    if llm.modelo_configurado():
+        nodo_nuevo = story.obtener_nodo(estado.nodo_actual)
+        narracion_generada = llm.generar_narracion(
+            contexto_escena=nodo.narracion,
+            ubicacion=nodo_nuevo.ubicacion,
+            accion_jugador=opcion.texto,
+            resultado_mecanico=_guion_canonico(nodo_nuevo),
+        )
+        if narracion_generada:
+            vista["narracion"] = narracion_generada
+
     return vista
+
+
+def _guion_canonico(nodo) -> str:
+    """Sinopsis "canónica" de un nodo: lo que el LLM tiene que narrar (con sus
+    propias palabras) sin cambiar los hechos. Es la red de contención que
+    garantiza que, haya o no LLM disponible, la historia sea siempre la misma."""
+    guion = nodo.narracion
+    if nodo.dialogos:
+        citas = "; ".join(f'{personaje} dice algo como «{linea}»' for personaje, linea in nodo.dialogos)
+        guion += (
+            f" (Para referencia de tono, en este momento: {citas} — no repitas "
+            "esa cita textual en tu narración, esas líneas ya se muestran aparte.)"
+        )
+    return guion
 
 
 def _describir_resolucion_para_llm(resolucion: free_text.Resolucion) -> str:
@@ -232,16 +256,7 @@ def accion_libre(estado: EstadoJugador, texto_jugador: str) -> Dict[str, Any]:
     estado.salud_clamp()
 
     narracion_libre = resolucion.narracion
-    if llm.modelo_configurado():
-        resultado_mecanico = _describir_resolucion_para_llm(resolucion)
-        narracion_generada = llm.generar_narracion_libre(
-            contexto_escena=nodo.narracion,
-            ubicacion=nodo.ubicacion,
-            accion_jugador=texto_jugador,
-            resultado_mecanico=resultado_mecanico,
-        )
-        if narracion_generada:
-            narracion_libre = narracion_generada
+    ubicacion_previa = nodo.ubicacion
 
     if not estado.vivo:
         destino = "final_muerte"
@@ -250,6 +265,23 @@ def accion_libre(estado: EstadoJugador, texto_jugador: str) -> Dict[str, Any]:
 
     _entrar_nodo(estado, destino)
     vista = vista_actual(estado)
+
+    if llm.modelo_configurado():
+        nodo_nuevo = story.obtener_nodo(estado.nodo_actual)
+        resultado_mecanico = _describir_resolucion_para_llm(resolucion)
+        if nodo_nuevo.id != nodo.id:
+            # La acción libre te movió a otro nodo: contale al LLM también
+            # el guion canónico de la escena nueva, no solo el delta.
+            resultado_mecanico += f" Después de eso: {_guion_canonico(nodo_nuevo)}"
+        narracion_generada = llm.generar_narracion(
+            contexto_escena=nodo.narracion,
+            ubicacion=ubicacion_previa,
+            accion_jugador=texto_jugador,
+            resultado_mecanico=resultado_mecanico,
+        )
+        if narracion_generada:
+            narracion_libre = narracion_generada
+
     vista["mensaje_libre"] = narracion_libre
     return vista
 

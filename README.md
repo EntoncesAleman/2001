@@ -11,9 +11,10 @@ El mismo motor de juego (`game/`) tiene **dos frontends**:
 - **Web** (`api/index.py`): una app [Flask](https://flask.palletsprojects.com/) lista para desplegar en [Vercel](https://vercel.com/).
 
 En los momentos climáticos de la historia, el juego genera un link de imagen
-en **pixel art retro 16-bit** usando la API pública de
-[Pollinations.ai](https://pollinations.ai/) (en la terminal se imprime el
-link; en la web se muestra como imagen real).
+en estilo **pintura cinematográfica realista** (paleta azul/violeta, tono
+documental) usando la API pública de [Pollinations.ai](https://pollinations.ai/)
+(en la terminal se imprime el link; en la web se muestra como imagen real,
+y también hay una cutscene animada de apertura).
 
 ---
 
@@ -57,7 +58,7 @@ python3 main.py
 - Si volvés a ejecutar `python3 main.py` y existe una partida guardada, te
   pregunta si querés continuarla.
 - Cuando el juego imprime un link `https://image.pollinations.ai/...`, pegalo
-  en el navegador para ver la ilustración pixel art de esa escena.
+  en el navegador para ver la ilustración de esa escena.
 
 ---
 
@@ -82,14 +83,19 @@ export SECRET_KEY="una-clave-larga-y-random-tuya"
 
 ---
 
-## 4. (Opcional) Narración enriquecida con un LLM
+## 4. (Opcional pero recomendado) Gemini como Game Master
 
-El intérprete de acciones libres (`game/free_text.py`) ya resuelve
-mecánicamente cualquier texto que escriba el jugador (efectos en salud,
-dinero, reputación, etc.) con narración propia en rioplatense. Si además
-configurás una API key de **Anthropic (Claude)** o de **Google (Gemini)**,
-esa narración se reemplaza por una generada por el modelo — los efectos
-mecánicos **no cambian**, solo mejora el texto. Elegí uno de los dos:
+El motor de nodos (`game/story.py` + `game/free_text.py`) resuelve **todo**
+mecánicamente por su cuenta (salud, dinero, reputación, a qué escena se
+pasa) y trae narración propia en rioplatense escrita a mano — así el juego
+es 100% jugable sin ninguna API key. Pero si configurás **Google Gemini**
+(o Anthropic/Claude), ese texto fijo pasa a ser el último recurso: el LLM
+se convierte en el narrador principal de cada turno — tanto para las
+opciones numeradas como para las acciones libres — redactando la escena en
+su propio estilo a partir del resultado que el motor ya decidió. Los
+efectos mecánicos **nunca** los define ni puede cambiarlos el LLM, solo la
+prosa que lee el jugador. Elegí uno de los dos (si configurás las dos,
+gana Gemini):
 
 ```bash
 # Opción A: Claude
@@ -101,7 +107,7 @@ export GEMINI_API_KEY="AIza..."             # la sacás de https://aistudio.goog
 export GEMINI_MODEL="gemini-2.5-flash"      # opcional, es el default
 ```
 
-Si tenés las dos keys configuradas a la vez, se usa Anthropic por defecto;
+Si tenés las dos keys configuradas a la vez, se usa Gemini por defecto;
 podés forzar cuál usar con `export LLM_PROVIDER="gemini"` (o `"anthropic"`).
 
 Si no configurás nada, o falla la llamada por cualquier motivo (sin
@@ -140,10 +146,12 @@ juego texto/
 ├── api/
 │   └── index.py              # Frontend web (Flask) — mismo motor, para Vercel
 ├── templates/
-│   └── index.html            # Página del juego (estética CRT/pixel art)
+│   └── index.html            # Página del juego (estética CRT + cutscene animada)
 ├── static/
-│   ├── style.css              # Tema visual retro 16-bit
-│   └── game.js                 # Lógica del cliente (fetch a /api/*)
+│   ├── style.css              # Tema visual + animación de la cutscene
+│   ├── game.js                 # Lógica del cliente (fetch a /api/*)
+│   └── audio/
+│       └── intro-musica.mp3     # (opcional) música de fondo de la cutscene, la ponés vos
 ├── game/                      # Motor del juego — sin I/O de terminal ni red directa
 │   ├── state.py                # EstadoJugador, Dinero (pesos/Patacones/Lecops/créditos)
 │   ├── story.py                 # Grafo de nodos narrativos + opciones + finales
@@ -174,7 +182,19 @@ muere en el acto (`final_muerte`), sin importar en qué nodo esté.
 
 ### Finales
 
-Al final de la historia (`game/engine.py:elegir_final`) el desenlace depende
-de las flags y la reputación barrial acumuladas durante la partida:
-`final_objetivo_cumplido`, `final_comunidad`, `final_huida`,
-`final_solitario` o `final_muerte`.
+Siete desenlaces posibles:
+
+- `final_objetivo_cumplido`, `final_comunidad` o `final_solitario` — se
+  deciden en `game/engine.py:elegir_final` según las flags y la reputación
+  barrial acumuladas al llegar al hub nocturno (`calle_noche`).
+- `final_muerte` — la salud llegó a 0 en cualquier momento de la partida.
+- `final_preso` — te agarra la policía (saqueando, en una persecución, o
+  intentando colarte en un control de ruta).
+- `final_represion_derrota` — te reprimen el piquete en el que estabas.
+- `final_presidente` — el final "secreto": infiltrarte en la Casa Rosada,
+  que queda desprotegida tras la partida del helicóptero presidencial (el
+  mismo de la cutscene de apertura), y sentarte en el sillón.
+
+No hay forma de terminar la partida saliendo del Conurbano/CABA: cualquier
+intento de cruzar el límite del AMBA (`control_ruta`) siempre te devuelve
+—en el mejor caso con un buen susto, en el peor, preso.

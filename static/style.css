@@ -404,6 +404,26 @@ button:active {
   margin: 0.8rem auto 0;
 }
 
+.intro-sonido {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  z-index: 9;
+  padding: 0.35rem 0.6rem;
+  font-family: var(--fuente-texto);
+  font-size: 0.95rem;
+  background: rgba(2, 6, 16, 0.75);
+  color: var(--blanco-pixel);
+  border: 1px solid var(--azul-borde);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.intro-sonido:hover {
+  background: rgba(2, 6, 16, 0.9);
+  border-color: var(--verde);
+}
+
 @keyframes introRotorChop {
   0%, 100% { transform: scaleX(1); }
   50% { transform: scaleX(0.15); }

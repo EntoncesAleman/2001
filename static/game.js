@@ -8,6 +8,8 @@ const introCapaExplosion = document.getElementById("intro-capa-explosion");
 const introCapaAereo = document.getElementById("intro-capa-aereo");
 const introCargando = document.getElementById("intro-cargando");
 const btnSaltarIntro = document.getElementById("btn-saltar-intro");
+const introMusica = document.getElementById("intro-musica");
+const btnActivarSonido = document.getElementById("btn-activar-sonido");
 
 const pantallaAlta = document.getElementById("pantalla-alta");
 const pantallaJuego = document.getElementById("pantalla-juego");
@@ -33,8 +35,10 @@ const ETIQUETAS_FINAL = {
   muerte: "☠️  FIN — NO SOBREVIVISTE",
   objetivo_cumplido: "🏁 FIN — CUMPLISTE TU OBJETIVO",
   comunidad: "🤝 FIN — SALISTE ADELANTE CON EL BARRIO",
-  huida: "🚌 FIN — TE FUISTE DEL GRAN BUENOS AIRES",
   solitario: "🚪 FIN — SOBREVIVISTE, SOLO",
+  preso: "🚔 FIN — TERMINASTE PRESO",
+  represion_derrota: "🪧 FIN — REPRIMIERON EL PIQUETE",
+  presidente: "🎖️  FIN — TERMINASTE SIENDO PRESIDENTE",
 };
 
 async function apiPost(url, body) {
@@ -75,11 +79,40 @@ function prefiereMovimientoReducido() {
   return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+function detenerMusicaIntro() {
+  introMusica.pause();
+  introMusica.currentTime = 0;
+  btnActivarSonido.hidden = true;
+}
+
+// Los navegadores bloquean el autoplay con sonido si la página no tuvo
+// ninguna interacción del usuario todavía (la cutscene arranca sola al
+// cargar). Si el bloqueo pasa, mostramos un botón para que lo active con un
+// solo click; si directamente no hay archivo de audio puesto en
+// static/audio/intro-musica.mp3, el intento falla igual pero en silencio,
+// sin romper nada (la cutscene funciona perfecto sin música).
+function intentarMusicaIntro() {
+  introMusica.volume = 0.55;
+  introMusica.currentTime = 0;
+  const promesa = introMusica.play();
+  if (promesa && typeof promesa.catch === "function") {
+    promesa.catch(() => {
+      btnActivarSonido.hidden = false;
+    });
+  }
+}
+
+btnActivarSonido.addEventListener("click", () => {
+  introMusica.play().catch(() => {});
+  btnActivarSonido.hidden = true;
+});
+
 function finalizarIntro() {
   if (introTimeoutId) {
     clearTimeout(introTimeoutId);
     introTimeoutId = null;
   }
+  detenerMusicaIntro();
   sessionStorage.setItem("introVista", "1");
   pantallaIntro.classList.remove("intro-reproduciendo");
   pantallaIntro.hidden = true;
@@ -171,6 +204,7 @@ async function reproducirIntro() {
   // agregar la clase que dispara las animaciones (si no, a veces no arrancan).
   void pantallaIntro.offsetWidth;
   pantallaIntro.classList.add("intro-reproduciendo");
+  intentarMusicaIntro();
   introTimeoutId = setTimeout(finalizarIntro, DURACION_INTRO_MS);
 }
 

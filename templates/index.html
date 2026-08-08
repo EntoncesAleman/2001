@@ -35,8 +35,12 @@
           <p class="intro-cargando" id="intro-cargando">CARGANDO ESCENA...</p>
           <p class="intro-caption" id="intro-caption">DICIEMBRE DE 2001</p>
           <div class="intro-negro" id="intro-negro"></div>
+          <button type="button" id="btn-activar-sonido" class="intro-sonido" hidden>🔊 Activar sonido</button>
         </div>
         <button type="button" id="btn-saltar-intro" class="boton-secundario intro-saltar">SALTAR INTRO ▶</button>
+        <audio id="intro-musica" preload="auto" loop>
+          <source src="{{ url_for('static', filename='audio/intro-musica.mp3') }}" type="audio/mpeg" />
+        </audio>
       </section>
 
       <!-- Alta de personaje -->

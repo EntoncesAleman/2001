@@ -90,6 +90,8 @@ _registrar(Nodo(
         Opcion(texto="Acercarte a la asamblea que se está armando en la placita", destino="asamblea_barrial"),
         Opcion(texto="Ir al club de trueque a ver qué conseguís para comer", destino="club_trueque"),
         Opcion(texto="Pasar por el cibercafé a ver si hay noticias o mensajes", destino="cibercafe"),
+        Opcion(texto="Ir hasta el piquete que cortó la ruta de acceso", destino="piquete"),
+        Opcion(texto="Agarrar tus cosas e intentar irte del Conurbano/CABA ahora mismo", destino="control_ruta"),
     ),
     destino_libre="esquina_barrio",
 ))
@@ -321,6 +323,7 @@ _registrar(Nodo(
                reputacion_delta=4),
         Opcion(texto="Preguntar si alguien sabe algo de gente perdida en algún saqueo", destino="cibercafe_noticia",
                requiere_flag=None),
+        Opcion(texto="Sumarte a un corte de ruta que están organizando entre varios", destino="piquete"),
         Opcion(texto="Retirarte, esto no es lo tuyo", destino="esquina_barrio"),
     ),
     destino_libre="asamblea_propuesta",
@@ -503,16 +506,16 @@ _registrar(Nodo(
         Opcion(
             texto="Agarrar lo justo y necesario, y salir cuanto antes",
             destino="esquina_barrio",
-            destino_alt="represion",
-            prob_alt=0.35,
+            destino_alt="persecucion",
+            prob_alt=0.3,
             items_add=("bolsa de mercadería",),
             reputacion_delta=-3,
         ),
         Opcion(
             texto="Quedarte cargando todo lo que puedas, total ya estás adentro",
             destino="esquina_barrio",
-            destino_alt="represion",
-            prob_alt=0.6,
+            destino_alt="persecucion",
+            prob_alt=0.55,
             items_add=("bolsa de mercadería", "un televisor chico"),
             reputacion_delta=-10,
             salud_delta=(-10, 0),
@@ -569,10 +572,13 @@ _registrar(Nodo(
     opciones=(
         Opcion(texto="Volver a tu casa a descansar y esperar que amanezca", destino="final_decision",
                salud_delta=(3, 8)),
-        Opcion(texto="Tomar la decisión de irte del Conurbano/CABA en cuanto puedas", destino="final_decision",
-               flags_add=("decidio_huir",)),
+        Opcion(texto="Intentar irte del Conurbano/CABA de una vez por todas", destino="control_ruta"),
         Opcion(texto="Quedarte en la calle, con los vecinos, pase lo que pase", destino="final_decision",
                reputacion_delta=6),
+        Opcion(
+            texto="Acercarte a la Casa Rosada, que en medio de este quilombo quedó rarísimamente desprotegida",
+            destino="casa_rosada_exterior",
+        ),
     ),
     destino_libre="final_decision",
 ))
@@ -623,7 +629,7 @@ _registrar(Nodo(
     imagen_en=(
         "a quiet moment of personal relief amid urban chaos in Buenos Aires, December 2001, "
         "a person holding something precious close, distant fires and protest smoke in the "
-        "background, bittersweet cinematic lighting, pixel art adventure game ending scene"
+        "background, bittersweet cinematic lighting"
     ),
     es_final=True,
     final_tipo="objetivo_cumplido",
@@ -642,29 +648,10 @@ _registrar(Nodo(
     imagen_en=(
         "a warm nighttime scene of neighbors gathered around a communal pot (olla popular) "
         "in a Buenos Aires neighborhood square, December 2001, makeshift lanterns, a sense "
-        "of solidarity amid the crisis, pixel art adventure game ending illustration"
+        "of solidarity amid the crisis"
     ),
     es_final=True,
     final_tipo="comunidad",
-))
-
-_registrar(Nodo(
-    id="final_huida",
-    ubicacion="Ruta hacia afuera del Conurbano",
-    narracion=(
-        "Juntaste lo poco que te quedaba y decidiste que este no iba a ser tu "
-        "final. Dejás atrás el barrio, el banco, la asamblea, el ruido de las "
-        "cacerolas cada vez más lejano por el espejo retrovisor. No sabés bien "
-        "qué te espera del otro lado, pero por primera vez en días, el pecho se "
-        "te afloja un poco."
-    ),
-    imagen_en=(
-        "a lone figure walking away on a highway leaving Greater Buenos Aires at dawn, "
-        "December 2001, looking back at the city skyline with smoke rising in the distance, "
-        "a sense of uncertain hope, pixel art adventure game ending illustration"
-    ),
-    es_final=True,
-    final_tipo="huida",
 ))
 
 _registrar(Nodo(
@@ -680,10 +667,346 @@ _registrar(Nodo(
     imagen_en=(
         "a person lying awake alone in a dim room lit by a small CRT television playing "
         "news static, Buenos Aires December 2001, distant window view of the city at night, "
-        "quiet and isolated mood, pixel art adventure game ending illustration"
+        "quiet and isolated mood"
     ),
     es_final=True,
     final_tipo="solitario",
+))
+
+
+# ---------------------------------------------------------------------------
+# 10. Piquete (corte de ruta)
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="piquete",
+    ubicacion="Corte de ruta en el acceso al barrio",
+    narracion=(
+        "Un piquete cortó la ruta de acceso: gomas quemadas, bidones vacíos, "
+        "una hilera de banderas de distintas organizaciones flameando juntas "
+        "por primera vez en mucho tiempo. Los autos varados hacen sonar la "
+        "bocina, algunos putean por la ventanilla, otros bajan a preguntar qué "
+        "está pasando y se quedan. El humo negro de las gomas te raspa la "
+        "garganta antes de que llegues."
+    ),
+    dialogos=(
+        ("Referente del piquete", "Acá no cortamos por joder, hermano. Cortamos porque no nos dejan otra."),
+    ),
+    opciones=(
+        Opcion(texto="Sumarte al corte activamente, hombro con hombro", destino="piquete_resistencia",
+               reputacion_delta=6),
+        Opcion(texto="Quedarte en la periferia, mirando cómo sigue esto", destino="piquete_resistencia"),
+        Opcion(texto="Intentar mediar con los automovilistas para bajar la tensión", destino="piquete_resistencia",
+               reputacion_delta=3),
+    ),
+    destino_libre="piquete_resistencia",
+))
+
+_registrar(Nodo(
+    id="piquete_resistencia",
+    ubicacion="Corte de ruta",
+    narracion=(
+        "Pasan las horas y el corte se sostiene. Alguien trae mate y pan, otro "
+        "cuenta chistes malos para bajar la tensión. Pero a lo lejos, entre el "
+        "humo de las gomas, empiezan a distinguirse las luces azules y rojas "
+        "de una hilera de patrulleros que se acerca despacio, sin apuro, como "
+        "quien sabe que tiene todo el tiempo del mundo."
+    ),
+    opciones=(
+        Opcion(texto="Prepararte para resistir el corte pase lo que pase", destino="piquete_represion",
+               reputacion_delta=4),
+        Opcion(texto="Empezar a pensar por dónde vas a rajar si esto se pone feo", destino="piquete_represion"),
+        Opcion(texto="Proponer levantar el corte antes de que llegue la cana", destino="esquina_barrio",
+               reputacion_delta=-2),
+    ),
+    destino_libre="piquete_represion",
+))
+
+_registrar(Nodo(
+    id="piquete_represion",
+    ubicacion="Corte de ruta, bajo represión",
+    narracion=(
+        "No negocian: la gendarmería avanza en línea, escudos y gases, y detrás "
+        "un camión hidrante que ya empieza a barrer la primera fila del corte. "
+        "En segundos el piquete ordenado se convierte en una desbandada de "
+        "gente corriendo entre el humo, tropezando con las gomas que un minuto "
+        "antes eran la barricada."
+    ),
+    imagen_en=(
+        "riot police in full gear advancing on a burning highway roadblock (piquete) with "
+        "tear gas and a water cannon truck, protesters scattering in panic, Buenos Aires "
+        "December 2001, dramatic wide action shot"
+    ),
+    opciones=(
+        Opcion(
+            texto="Resistir en la primera línea, no vas a aflojar",
+            destino="esquina_barrio",
+            destino_alt="final_represion_piquete",
+            prob_alt=0.65,
+            salud_delta=(-20, -8),
+            estados_add=("tos por gases",),
+        ),
+        Opcion(
+            texto="Retirarte rápido hacia atrás, entre la desbandada",
+            destino="esquina_barrio",
+            destino_alt="final_represion_piquete",
+            prob_alt=0.35,
+            salud_delta=(-10, -2),
+        ),
+        Opcion(
+            texto="Quedarte a un costado filmando la represión con lo que tengas a mano",
+            destino="esquina_barrio",
+            destino_alt="final_represion_piquete",
+            prob_alt=0.5,
+            salud_delta=(-15, -5),
+            reputacion_delta=5,
+        ),
+    ),
+    destino_libre="final_represion_piquete",
+))
+
+
+# ---------------------------------------------------------------------------
+# 11. Control de ruta — el límite del AMBA
+# ---------------------------------------------------------------------------
+# No hay forma de "ganar" saliendo del Conurbano/CABA: cualquier intento
+# termina acá, y de acá siempre se vuelve para adentro. La única variable es
+# cuánto te cuesta el intento (y si te pasás de vivo, terminás preso).
+
+_registrar(Nodo(
+    id="control_ruta",
+    ubicacion="Peaje/control de acceso, límite del AMBA",
+    narracion=(
+        "Llegás al control y la fila de autos no se mueve: es un retén de "
+        "gendarmería revisando documentos y baúles, uno por uno, mezclado con "
+        "un corte de otro piquete del otro lado. Nadie entra ni sale del "
+        "Conurbano sin pase esta noche. \"Con la que está armada, quedate en "
+        "tu casa\", te dice un gendarme, sin mirarte demasiado."
+    ),
+    opciones=(
+        Opcion(texto="Dar la vuelta, resignado, y volver a tu barrio", destino="esquina_barrio",
+               salud_delta=(-3, 0)),
+        Opcion(
+            texto="Intentar colarte campo traviesa, lejos del control",
+            destino="esquina_barrio",
+            destino_alt="final_preso",
+            prob_alt=0.25,
+            salud_delta=(-8, -2),
+        ),
+        Opcion(
+            texto="Discutir con el gendarme a cargo, exigir que te dejen pasar",
+            destino="esquina_barrio",
+            destino_alt="final_preso",
+            prob_alt=0.15,
+            reputacion_delta=-3,
+        ),
+    ),
+    destino_libre="esquina_barrio",
+))
+
+
+# ---------------------------------------------------------------------------
+# 12. Persecución policial
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="persecucion",
+    ubicacion="Corriendo por las calles del barrio",
+    narracion=(
+        "\"¡Alto ahí!\" — un policía te vio y salió corriendo detrás tuyo, "
+        "haciendo sonar un silbato. El corazón se te va a la garganta. Las "
+        "calles se llenan de gente que se corre de en medio, algunos te miran, "
+        "nadie te ayuda, nadie te delata tampoco."
+    ),
+    imagen_en=(
+        "a person running desperately through a narrow Buenos Aires street being chased by "
+        "a police officer on foot, December 2001, motion blur, dramatic low angle, tense "
+        "nighttime chase scene"
+    ),
+    opciones=(
+        Opcion(
+            texto="Meterte en un zaguán abierto a esconderte",
+            destino="esquina_barrio",
+            destino_alt="persecucion_acorralado",
+            prob_alt=0.35,
+        ),
+        Opcion(
+            texto="Cruzar corriendo la avenida esquivando autos",
+            destino="esquina_barrio",
+            destino_alt="persecucion_acorralado",
+            prob_alt=0.45,
+            salud_delta=(-15, -5),
+        ),
+        Opcion(
+            texto="Perderte entre la gente en la parada del colectivo",
+            destino="esquina_barrio",
+            destino_alt="persecucion_acorralado",
+            prob_alt=0.3,
+        ),
+    ),
+    destino_libre="persecucion_acorralado",
+))
+
+_registrar(Nodo(
+    id="persecucion_acorralado",
+    ubicacion="Callejón sin salida",
+    narracion=(
+        "Doblás en lo que pensabas que era una salida y no hay nada: pared "
+        "ciega, rejas, un tacho de basura volcado. Atrás tuyo, dos policías "
+        "entran al callejón caminando despacio, ya sin apuro. \"Quedate "
+        "tranquilo y no va a pasar nada\", dice uno, con la mano en la cintura."
+    ),
+    opciones=(
+        Opcion(texto="Levantar las manos y entregarte", destino="final_preso"),
+        Opcion(
+            texto="Intentar zafar a las piñas",
+            destino="esquina_barrio",
+            destino_alt="final_preso",
+            prob_alt=0.75,
+            salud_delta=(-30, -10),
+        ),
+        Opcion(
+            texto="Ofrecerles unos pesos para que te dejen ir",
+            destino="esquina_barrio",
+            destino_alt="final_preso",
+            prob_alt=0.4,
+            dinero_delta={"pesos": -30},
+        ),
+    ),
+    destino_libre="final_preso",
+))
+
+
+# ---------------------------------------------------------------------------
+# 13. Casa Rosada — el camino menos pensado
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="casa_rosada_exterior",
+    ubicacion="Plaza de Mayo, frente a la Casa Rosada",
+    narracion=(
+        "Es una imagen que no vas a olvidar nunca: la Casa de Gobierno, "
+        "prácticamente sola. El helicóptero presidencial se fue hace un rato "
+        "largo, ya sin nadie mirando el cielo. No hay Granaderos en la puerta, "
+        "no hay vallado, no hay nadie cuidando nada. En medio de semejante "
+        "quilombo, a esta hora, nadie está mirando la Casa Rosada."
+    ),
+    imagen_en=(
+        "the pink presidential palace (Casa Rosada) in Buenos Aires standing eerily "
+        "unguarded at night during a state of chaos in December 2001, its side gates left "
+        "open, distant sirens and glow of fires in the sky, empty plaza in the foreground"
+    ),
+    opciones=(
+        Opcion(
+            texto="Meterte por los jardines laterales",
+            destino="casa_rosada_infiltracion",
+            destino_alt="final_preso",
+            prob_alt=0.4,
+        ),
+        Opcion(
+            texto="Treparte por una reja donde ya se ve gente entrando",
+            destino="casa_rosada_infiltracion",
+            destino_alt="final_preso",
+            prob_alt=0.3,
+        ),
+        Opcion(texto="Retirarte, esto es una locura", destino="esquina_barrio"),
+    ),
+    destino_libre="esquina_barrio",
+))
+
+_registrar(Nodo(
+    id="casa_rosada_infiltracion",
+    ubicacion="Adentro de la Casa Rosada",
+    narracion=(
+        "Los pasillos están vacíos y en penumbras. Cuadros de próceres torcidos "
+        "en la pared, papeles tirados por todos lados de la salida apurada de "
+        "esta tarde. Caminás como en un sueño, sin que nadie te pare, hasta un "
+        "salón enorme con un sillón al fondo, bajo un cuadro gigante. Nadie "
+        "más parece estar ahí."
+    ),
+    imagen_en=(
+        "the empty grand hall inside the Casa Rosada presidential palace at night, "
+        "abandoned in haste, papers scattered on marble floors, a presidential chair "
+        "illuminated at the far end, eerie and surreal atmosphere"
+    ),
+    opciones=(
+        Opcion(texto="Sentarte en el sillón, total ¿quién te va a decir algo?", destino="final_presidente"),
+        Opcion(
+            texto="Agarrar algún recuerdo y rajar antes de que te agarren",
+            destino="esquina_barrio",
+            destino_alt="final_preso",
+            prob_alt=0.3,
+            items_add=("un cuadro chico afanado de la Casa Rosada",),
+        ),
+        Opcion(texto="Arrepentirte y salir corriendo antes de que sea peor", destino="esquina_barrio"),
+    ),
+    destino_libre="esquina_barrio",
+))
+
+
+# ---------------------------------------------------------------------------
+# 14. Finales nuevos: preso, represión de piquete, presidente
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="final_preso",
+    ubicacion="Comisaría del barrio",
+    narracion=(
+        "Te subieron al patrullero sin muchas explicaciones. La comisaría está "
+        "desbordada, hay más gente detenida esta noche que espacio en los "
+        "calabozos. Te procesan con un montón de nombres más, todos con "
+        "historias parecidas a la tuya. Che, ahora lo único que te queda es "
+        "esperar que alguien allá afuera se acuerde de vos."
+    ),
+    imagen_en=(
+        "the overcrowded inside of a small local police station at night in Buenos Aires, "
+        "December 2001, detained people sitting on benches, a tired officer filling out "
+        "paperwork, grim fluorescent lighting"
+    ),
+    es_final=True,
+    final_tipo="preso",
+))
+
+_registrar(Nodo(
+    id="final_represion_piquete",
+    ubicacion="Ruta despejada a la fuerza",
+    narracion=(
+        "La represión se llevó puesto el corte. Dispersaron a todos, se "
+        "llevaron detenidos a varios compañeros, y en cuestión de minutos la "
+        "ruta volvió a estar libre, como si el piquete nunca hubiera existido. "
+        "Volvés a tu casa con las manos vacías y la garganta rota de gases, "
+        "pensando en toda la gente que se quedó ahí, del otro lado de la "
+        "topadora."
+    ),
+    imagen_en=(
+        "the aftermath of a violently cleared highway roadblock at night, Buenos Aires "
+        "December 2001, scattered burnt tires, police vehicles patrolling an empty road, "
+        "a lone figure walking away defeated"
+    ),
+    es_final=True,
+    final_tipo="represion_derrota",
+))
+
+_registrar(Nodo(
+    id="final_presidente",
+    ubicacion="Casa Rosada, Salón Blanco",
+    narracion=(
+        "Te sentás. El cuero del sillón todavía está tibio. Un asistente entra "
+        "corriendo, te ve, y en vez de sacarte a los gritos te pregunta, "
+        "agitado, si ya estás listo para el juramento — parece que, con la "
+        "que está armada, nadie tuvo tiempo de fijarse bien quién sos. "
+        "Afuera, alguien empieza a improvisar un discurso con tu nombre. En un "
+        "país que va a tener cinco presidentes en dos semanas, uno más, uno "
+        "menos, no le importa demasiado a nadie. Así, de pura casualidad y "
+        "cara dura, terminaste siendo presidente de la Nación Argentina."
+    ),
+    imagen_en=(
+        "a surreal and satirical scene of an ordinary person being sworn in as president in "
+        "a grand government hall, improvised ceremony amid chaos, Casa Rosada, Buenos Aires "
+        "December 2001, dramatic lighting, historic and absurd tone"
+    ),
+    es_final=True,
+    final_tipo="presidente",
 ))
 
 

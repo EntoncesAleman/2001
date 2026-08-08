@@ -58,7 +58,7 @@ def mostrar_imagen(url: Optional[str]) -> None:
     console.print(Rule("[bold yellow]ESCENA CLAVE[/bold yellow]", style="yellow"))
     console.print(f"[yellow]🖼  {url}[/yellow]")
     console.print(
-        "[dim](copiá y pegá el link en el navegador para ver la ilustración pixel art)[/dim]"
+        "[dim](copiá y pegá el link en el navegador para ver la ilustración de la escena)[/dim]"
     )
     console.print(Rule(style="yellow"))
     console.print()
@@ -116,8 +116,10 @@ def mostrar_vista(vista: dict) -> None:
             "muerte": "☠️  FIN — NO SOBREVIVISTE",
             "objetivo_cumplido": "🏁 FIN — CUMPLISTE TU OBJETIVO",
             "comunidad": "🤝 FIN — SALISTE ADELANTE CON EL BARRIO",
-            "huida": "🚌 FIN — TE FUISTE DEL GRAN BUENOS AIRES",
             "solitario": "🚪 FIN — SOBREVIVISTE, SOLO",
+            "preso": "🚔 FIN — TERMINASTE PRESO",
+            "represion_derrota": "🪧 FIN — REPRIMIERON EL PIQUETE",
+            "presidente": "🎖️  FIN — TERMINASTE SIENDO PRESIDENTE",
         }
         etiqueta = etiquetas.get(vista.get("final_tipo"), "FIN DE LA PARTIDA")
         console.print(Panel(etiqueta, border_style="bold red", padding=(1, 2)))
