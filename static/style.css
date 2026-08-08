@@ -1,0 +1,255 @@
+:root {
+  --azul-fondo: #050b1f;
+  --azul-panel: #0d1b3d;
+  --azul-borde: #1e3a7a;
+  --blanco-pixel: #e8ecff;
+  --amarillo: #f4d35e;
+  --rojo: #ff5d5d;
+  --verde: #7bd88f;
+  --fuente-titulo: "Press Start 2P", monospace;
+  --fuente-texto: "VT323", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  min-height: 100vh;
+  font-family: var(--fuente-texto);
+}
+
+.crt {
+  position: relative;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at center, var(--azul-fondo) 0%, #000006 100%);
+  color: var(--blanco-pixel);
+  padding: 1.5rem 1rem 3rem;
+  overflow-x: hidden;
+}
+
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.035) 0px,
+    rgba(255, 255, 255, 0.035) 1px,
+    transparent 2px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+  z-index: 50;
+}
+
+.titulo {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.titulo h1 {
+  font-family: var(--fuente-titulo);
+  font-size: clamp(1.1rem, 4vw, 2rem);
+  color: var(--blanco-pixel);
+  text-shadow: 3px 3px 0 #000, 0 0 12px rgba(120, 160, 255, 0.6);
+  letter-spacing: 0.15em;
+  margin: 0 0 0.6rem;
+}
+
+.subtitulo {
+  font-size: 1.2rem;
+  color: #9db3ff;
+  margin: 0;
+}
+
+.pantalla {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.panel-juego {
+  background: var(--azul-panel);
+  border: 3px solid var(--azul-borde);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px #000, 0 0 24px rgba(30, 58, 122, 0.6), inset 0 0 40px rgba(0, 0, 0, 0.4);
+  padding: 1.4rem 1.4rem 1.7rem;
+}
+
+.intro-texto {
+  font-size: 1.25rem;
+  line-height: 1.5;
+  color: #cdd6ff;
+}
+
+#form-alta, #form-libre {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+#form-alta label, #form-libre label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 1.15rem;
+  color: var(--amarillo);
+}
+
+input[type="text"] {
+  font-family: var(--fuente-texto);
+  font-size: 1.25rem;
+  background: #030816;
+  border: 2px solid var(--azul-borde);
+  color: var(--blanco-pixel);
+  padding: 0.6rem 0.7rem;
+  border-radius: 2px;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--amarillo);
+}
+
+button {
+  font-family: var(--fuente-titulo);
+  font-size: 0.85rem;
+  background: var(--azul-borde);
+  color: var(--blanco-pixel);
+  border: 2px solid #4a6fd4;
+  padding: 0.8rem 1rem;
+  border-radius: 2px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: transform 0.05s ease, background 0.15s ease;
+}
+
+button:hover {
+  background: #294d9e;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+.boton-secundario {
+  background: transparent;
+  color: #7f93d1;
+  border-color: #35478a;
+  font-size: 0.65rem;
+}
+
+.imagen-escena {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 3px solid var(--azul-borde);
+  border-radius: 3px;
+  margin-bottom: 1rem;
+  image-rendering: pixelated;
+  box-shadow: 0 0 20px rgba(30, 58, 122, 0.8);
+}
+
+.narracion {
+  font-size: 1.3rem;
+  line-height: 1.55;
+  color: var(--blanco-pixel);
+  margin-bottom: 0.8rem;
+  white-space: pre-line;
+}
+
+.dialogos p {
+  font-size: 1.2rem;
+  margin: 0.3rem 0;
+  color: var(--amarillo);
+}
+
+.dialogos p .texto-dialogo {
+  color: var(--blanco-pixel);
+  font-style: italic;
+}
+
+.mensaje-efecto {
+  font-size: 1.15rem;
+  font-style: italic;
+  color: #d693ff;
+}
+
+.panel-estado {
+  font-family: var(--fuente-texto);
+  font-size: 1.15rem;
+  background: #020610;
+  border: 2px dashed var(--azul-borde);
+  color: #8fd6ff;
+  padding: 0.8rem 1rem;
+  border-radius: 2px;
+  white-space: pre-wrap;
+  margin: 1rem 0;
+}
+
+.opciones-titulo {
+  font-size: 1.1rem;
+  color: var(--verde);
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.lista-opciones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.2rem;
+}
+
+.lista-opciones button {
+  text-align: left;
+  font-family: var(--fuente-texto);
+  font-size: 1.2rem;
+  background: #0a1836;
+  border-color: var(--azul-borde);
+  padding: 0.7rem 0.9rem;
+}
+
+.lista-opciones button:hover {
+  background: #16305f;
+  border-color: var(--verde);
+}
+
+.etiqueta-final {
+  font-family: var(--fuente-titulo);
+  font-size: 0.95rem;
+  color: var(--rojo);
+  text-align: center;
+  line-height: 1.6;
+  margin-bottom: 1.2rem;
+}
+
+.mensaje-error {
+  color: var(--rojo);
+  font-size: 1.15rem;
+  margin-top: 0.8rem;
+}
+
+.barra-utilidades {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.pie {
+  text-align: center;
+  color: #4a5b99;
+  font-size: 0.95rem;
+  margin-top: 2rem;
+}
+
+@media (max-width: 480px) {
+  .titulo h1 {
+    letter-spacing: 0.05em;
+  }
+  .panel-juego {
+    padding: 1rem;
+  }
+}

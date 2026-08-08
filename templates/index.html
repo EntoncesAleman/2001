@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Argentina 2001 — RPG textual</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="crt">
+    <div class="scanlines"></div>
+
+    <header class="titulo">
+      <h1>ARGENTINA 2001</h1>
+      <p class="subtitulo">Supervivencia en el Gran Buenos Aires</p>
+    </header>
+
+    <main class="pantalla">
+
+      <!-- Alta de personaje -->
+      <section id="pantalla-alta" class="panel-juego">
+        <p class="intro-texto">
+          Diciembre de 2001. El Corralito, los Patacones, las asambleas, los cacerolazos.
+          Antes de arrancar necesito algunos datos tuyos. No hace falta que uses los
+          ejemplos: escribí lo que quieras.
+        </p>
+        <form id="form-alta">
+          <label>
+            ¿Cómo te llamás?
+            <input type="text" name="nombre" required maxlength="80" placeholder="Ej: Marcela" />
+          </label>
+          <label>
+            ¿Cuál es tu trasfondo?
+            <input type="text" name="trasfondo" required maxlength="200"
+                   placeholder="Ej: empleada bancaria, estudiante, comerciante, chofer de colectivo..." />
+          </label>
+          <label>
+            ¿De qué barrio salís?
+            <input type="text" name="barrio" required maxlength="120"
+                   placeholder="Ej: un barrio del Conurbano Oeste, o de CABA" />
+          </label>
+          <label>
+            ¿Cuál es tu objetivo principal?
+            <input type="text" name="objetivo" required maxlength="200"
+                   placeholder="Ej: retirar tus ahorros, salvar el negocio familiar, buscar a un familiar..." />
+          </label>
+          <button type="submit">EMPEZAR PARTIDA</button>
+        </form>
+        <p id="error-alta" class="mensaje-error" hidden></p>
+      </section>
+
+      <!-- Juego en curso -->
+      <section id="pantalla-juego" class="panel-juego" hidden>
+        <img id="imagen-escena" class="imagen-escena" alt="Escena clave" hidden />
+
+        <div id="narracion" class="narracion"></div>
+        <div id="dialogos" class="dialogos"></div>
+        <p id="mensaje-efecto" class="mensaje-efecto" hidden></p>
+
+        <pre class="panel-estado" id="panel-estado"></pre>
+
+        <div id="bloque-final" hidden>
+          <p id="etiqueta-final" class="etiqueta-final"></p>
+          <button id="btn-jugar-de-nuevo">JUGAR OTRA PARTIDA</button>
+        </div>
+
+        <div id="bloque-opciones">
+          <p class="opciones-titulo">Opciones Tácticas:</p>
+          <div id="lista-opciones" class="lista-opciones"></div>
+
+          <form id="form-libre">
+            <label>
+              (Escribí tu propia acción libre)
+              <input type="text" id="input-libre" maxlength="300" placeholder="¿Qué hacés?" />
+            </label>
+            <button type="submit">HACER</button>
+          </form>
+        </div>
+
+        <p id="error-accion" class="mensaje-error" hidden></p>
+
+        <div class="barra-utilidades">
+          <button id="btn-reiniciar" class="boton-secundario">EMPEZAR DE NUEVO</button>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="pie">
+      <span>che, esto es ficción interactiva ambientada en hechos históricos reales — 2001</span>
+    </footer>
+  </div>
+
+  <script src="{{ url_for('static', filename='game.js') }}"></script>
+</body>
+</html>
