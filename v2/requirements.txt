@@ -1,0 +1,9 @@
+# Dependencias propias de v2 (multijugador). El v1 (requirements.txt en la
+# raíz) no se toca ni depende de esto.
+Flask>=3.0
+Flask-SocketIO>=5.6
+python-socketio>=5.11
+supabase>=2.31
+requests>=2.31
+anthropic>=0.40
+google-genai>=0.7

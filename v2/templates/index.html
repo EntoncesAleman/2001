@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2001: Odisea en Buenos Aires — Mesa Multijugador (v2)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="envoltorio">
+    <header class="titulo">
+      <h1>2001: ODISEA — MESA MULTIJUGADOR</h1>
+      <p class="subtitulo">v2 · mesa chica · hasta 6 jugadores, arranca con 3</p>
+    </header>
+
+    <main class="pantalla">
+
+      <!-- Pantalla 1: crear o unirse a una sala -->
+      <section id="pantalla-inicio" class="panel">
+        <div class="columnas">
+          <div class="columna">
+            <h2>Crear una mesa nueva</h2>
+            <p class="texto-ayuda">Se genera un código de 5 letras para compartir con el resto.</p>
+            <button type="button" id="btn-crear-sala">CREAR MESA</button>
+          </div>
+          <div class="columna">
+            <h2>Unirte a una mesa</h2>
+            <label>
+              Código de la mesa
+              <input type="text" id="input-codigo-sala" maxlength="5" placeholder="Ej: K7XPQ" style="text-transform:uppercase" />
+            </label>
+            <button type="button" id="btn-ir-a-unirse">CONTINUAR</button>
+          </div>
+        </div>
+        <p id="error-inicio" class="mensaje-error" hidden></p>
+      </section>
+
+      <!-- Pantalla 2: alta de personaje para unirse a una sala ya identificada -->
+      <section id="pantalla-alta" class="panel" hidden>
+        <p class="texto-ayuda">
+          Mesa <strong id="codigo-mostrado"></strong>. Diciembre de 2001: el Corralito, los
+          Patacones, las asambleas, los cacerolazos. Antes de sumarte, contanos de tu personaje.
+        </p>
+        <form id="form-alta">
+          <label>
+            ¿Cómo te llamás? (tiene que ser único en la mesa)
+            <input type="text" name="nombre" required maxlength="80" placeholder="Ej: Marcela" />
+          </label>
+          <label>
+            ¿Cuál es tu trasfondo?
+            <input type="text" name="trasfondo" required maxlength="200" placeholder="Ej: empleada bancaria" />
+          </label>
+          <label>
+            ¿De qué barrio salís?
+            <input type="text" name="barrio" required maxlength="120" placeholder="Ej: La Matanza, o CABA" />
+          </label>
+          <label>
+            ¿Cuál es tu objetivo principal?
+            <input type="text" name="objetivo" required maxlength="200" placeholder="Ej: retirar tus ahorros del banco" />
+          </label>
+          <button type="submit">SUMARME A LA MESA</button>
+        </form>
+        <p id="error-alta" class="mensaje-error" hidden></p>
+      </section>
+
+      <!-- Pantalla 3: lobby, esperando el mínimo de jugadores -->
+      <section id="pantalla-lobby" class="panel" hidden>
+        <h2>Sala <span id="lobby-codigo"></span></h2>
+        <p class="texto-ayuda">Compartí este código. La partida arranca sola al llegar a
+          <strong id="lobby-minimo"></strong> jugadores (máximo <strong id="lobby-maximo"></strong>).</p>
+        <ul id="lobby-jugadores" class="lista-jugadores"></ul>
+        <p id="lobby-estado" class="texto-ayuda"></p>
+      </section>
+
+      <!-- Pantalla 4: partida en curso -->
+      <section id="pantalla-juego" class="panel" hidden>
+        <div class="columnas">
+          <div class="columna columna-principal">
+            <pre class="panel-estado" id="panel-estado"></pre>
+            <div id="narracion" class="narracion"></div>
+            <div id="dialogos" class="dialogos"></div>
+            <p id="mensaje-efecto" class="mensaje-efecto" hidden></p>
+
+            <div id="bloque-final" hidden>
+              <p id="etiqueta-final" class="etiqueta-final"></p>
+            </div>
+
+            <div id="bloque-opciones">
+              <p class="opciones-titulo">Opciones tácticas</p>
+              <div id="lista-opciones" class="lista-opciones"></div>
+              <form id="form-libre">
+                <label>
+                  (acción libre)
+                  <input type="text" id="input-libre" maxlength="300" placeholder="¿Qué hacés?" />
+                </label>
+                <button type="submit">HACER</button>
+              </form>
+            </div>
+            <p id="error-accion" class="mensaje-error" hidden></p>
+          </div>
+
+          <div class="columna columna-lateral">
+            <h3>La mesa</h3>
+            <ul id="tabla-jugadores" class="lista-jugadores"></ul>
+            <h3>Lo que va pasando</h3>
+            <ul id="feed-eventos" class="feed-eventos"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pantalla 5: cierre de la partida -->
+      <section id="pantalla-cierre" class="panel" hidden>
+        <h2 id="cierre-titulo"></h2>
+        <ol id="cierre-tabla" class="lista-jugadores"></ol>
+      </section>
+
+    </main>
+
+    <footer class="pie">
+      <span>che, esto es ficción interactiva ambientada en hechos históricos reales — 2001</span>
+    </footer>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='game_mp.js') }}"></script>
+</body>
+</html>
