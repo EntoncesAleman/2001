@@ -507,3 +507,28 @@ button:active {
     animation: none !important;
   }
 }
+
+/* Intro de MODO LIBRE (IA): un video en loop en vez de las dos imágenes
+   generadas. Reutiliza .intro-caption/.intro-negro y sus keyframes tal
+   cual (introCaption/introNegro), solo que acá corren más largo — se
+   pisa var(--duracion-intro) únicamente adentro de esta pantalla, así el
+   video da lugar a un par de vueltas de loop antes del fundido a negro. */
+#pantalla-intro-ia {
+  --duracion-intro: 9s;
+}
+
+.video-intro-ia {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #pantalla-intro-ia.intro-reproduciendo .intro-caption,
+  #pantalla-intro-ia.intro-reproduciendo .intro-negro {
+    animation: none !important;
+  }
+}

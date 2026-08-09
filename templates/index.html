@@ -19,25 +19,10 @@
 
     <main class="pantalla">
 
-      <!-- Cutscene de apertura (estilo intro de recreativo) -->
-      <section id="pantalla-intro" class="panel-intro">
-        <div class="intro-viewport">
-          <div class="intro-capa" id="intro-capa-calle"></div>
-          <div class="intro-capa" id="intro-capa-helicoptero"></div>
-          <div class="intro-scanlines"></div>
-          <p class="intro-cargando" id="intro-cargando">CARGANDO ESCENA...</p>
-          <p class="intro-caption" id="intro-caption">DICIEMBRE DE 2001</p>
-          <div class="intro-negro" id="intro-negro"></div>
-          <button type="button" id="btn-activar-sonido" class="intro-sonido" hidden>🔊 Activar sonido</button>
-        </div>
-        <button type="button" id="btn-saltar-intro" class="boton-secundario intro-saltar">SALTAR INTRO ▶</button>
-        <audio id="intro-musica" preload="auto" loop>
-          <source src="{{ url_for('static', filename='audio/intro-musica.mp3') }}" type="audio/mpeg" />
-        </audio>
-      </section>
-
-      <!-- Selección de modo -->
-      <section id="pantalla-modo" class="panel-juego" hidden>
+      <!-- Selección de modo: primera pantalla que ve el jugador. La cutscene
+           de apertura corre DESPUÉS de elegir modo, y es distinta según cuál
+           se eligió (ver #pantalla-intro-nodos / #pantalla-intro-ia). -->
+      <section id="pantalla-modo" class="panel-juego">
         <p class="intro-texto">
           ¿Cómo querés jugar?
         </p>
@@ -55,6 +40,37 @@
           El modo libre necesita una API key de Gemini o Claude configurada en el servidor. Por
           ahora solo está disponible el modo historia.
         </p>
+      </section>
+
+      <!-- Cutscene de apertura de MODO HISTORIA (estilo intro de recreativo,
+           dos fotogramas generados con paneo de cámara). -->
+      <section id="pantalla-intro-nodos" class="panel-intro" hidden>
+        <div class="intro-viewport">
+          <div class="intro-capa" id="intro-capa-calle"></div>
+          <div class="intro-capa" id="intro-capa-helicoptero"></div>
+          <div class="intro-scanlines"></div>
+          <p class="intro-cargando" id="intro-cargando">CARGANDO ESCENA...</p>
+          <p class="intro-caption" id="intro-caption">DICIEMBRE DE 2001</p>
+          <div class="intro-negro" id="intro-negro"></div>
+          <button type="button" id="btn-activar-sonido" class="intro-sonido" hidden>🔊 Activar sonido</button>
+        </div>
+        <button type="button" id="btn-saltar-intro-nodos" class="boton-secundario intro-saltar">SALTAR INTRO ▶</button>
+        <audio id="intro-musica" preload="auto" loop>
+          <source src="{{ url_for('static', filename='audio/intro-musica.mp3') }}" type="audio/mpeg" />
+        </audio>
+      </section>
+
+      <!-- Cutscene de apertura de MODO LIBRE (IA): animación en loop, estilo
+           "versus" de juego de pelea, con la Casa Rosada de fondo. -->
+      <section id="pantalla-intro-ia" class="panel-intro" hidden>
+        <div class="intro-viewport">
+          <video id="video-intro-ia" class="video-intro-ia" autoplay loop muted playsinline
+                 src="{{ url_for('static', filename='video/intro-libre-loop.mp4') }}"></video>
+          <div class="intro-scanlines"></div>
+          <p class="intro-caption">DICIEMBRE DE 2001</p>
+          <div class="intro-negro" id="intro-negro-ia"></div>
+        </div>
+        <button type="button" id="btn-saltar-intro-ia" class="boton-secundario intro-saltar">SALTAR INTRO ▶</button>
       </section>
 
       <!-- Alta de personaje -->

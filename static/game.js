@@ -105,13 +105,17 @@ document.addEventListener("keydown", (evento) => {
   }
 });
 
-const pantallaIntro = document.getElementById("pantalla-intro");
+const pantallaIntroNodos = document.getElementById("pantalla-intro-nodos");
 const introCapaCalle = document.getElementById("intro-capa-calle");
 const introCapaHelicoptero = document.getElementById("intro-capa-helicoptero");
 const introCargando = document.getElementById("intro-cargando");
-const btnSaltarIntro = document.getElementById("btn-saltar-intro");
+const btnSaltarIntroNodos = document.getElementById("btn-saltar-intro-nodos");
 const introMusica = document.getElementById("intro-musica");
 const btnActivarSonido = document.getElementById("btn-activar-sonido");
+
+const pantallaIntroIA = document.getElementById("pantalla-intro-ia");
+const videoIntroIA = document.getElementById("video-intro-ia");
+const btnSaltarIntroIA = document.getElementById("btn-saltar-intro-ia");
 
 const pantallaModo = document.getElementById("pantalla-modo");
 const btnModoHistoria = document.getElementById("btn-modo-historia");
@@ -204,18 +208,27 @@ async function apiGet(url) {
 
 function mostrarPantallaJuego() {
   pantallaModo.hidden = true;
+  pantallaIntroNodos.hidden = true;
+  pantallaIntroIA.hidden = true;
   pantallaAlta.hidden = true;
   pantallaJuego.hidden = false;
 }
 
 function mostrarPantallaAlta() {
   pantallaModo.hidden = true;
+  pantallaIntroNodos.hidden = true;
+  pantallaIntroIA.hidden = true;
   pantallaJuego.hidden = true;
   pantallaAlta.hidden = false;
 }
 
+// Primera pantalla que ve el jugador (ver también inicializar() al final del
+// archivo): la cutscene de apertura corre DESPUÉS de elegir modo, no antes,
+// y es distinta según cuál se eligió.
 async function mostrarPantallaModo() {
   pantallaJuego.hidden = true;
+  pantallaIntroNodos.hidden = true;
+  pantallaIntroIA.hidden = true;
   pantallaAlta.hidden = true;
   pantallaModo.hidden = false;
 
@@ -235,18 +248,21 @@ async function mostrarPantallaModo() {
 
 btnModoHistoria.addEventListener("click", () => {
   modoElegido = "historia";
-  mostrarPantallaAlta();
+  reproducirIntroNodos();
 });
 
 btnModoLibre.addEventListener("click", () => {
   if (btnModoLibre.disabled) return;
   modoElegido = "libre";
-  mostrarPantallaAlta();
+  reproducirIntroIA();
 });
 
-// --- Cutscene de apertura ---------------------------------------------
-// Tiene que coincidir con var(--duracion-intro) de static/style.css.
+// --- Cutscenes de apertura ---------------------------------------------
+// Tiene que coincidir con var(--duracion-intro) de static/style.css (la de
+// #pantalla-intro-nodos, sin pisar — la de #pantalla-intro-ia se pisa ahí
+// mismo a 9s).
 const DURACION_INTRO_MS = 5500;
+const DURACION_INTRO_IA_MS = 9000;
 let introTimeoutId = null;
 
 function prefiereMovimientoReducido() {
@@ -281,16 +297,28 @@ btnActivarSonido.addEventListener("click", () => {
   btnActivarSonido.hidden = true;
 });
 
-function finalizarIntro() {
+function finalizarIntroNodos() {
   if (introTimeoutId) {
     clearTimeout(introTimeoutId);
     introTimeoutId = null;
   }
   detenerMusicaIntro();
   sessionStorage.setItem("introVista", "1");
-  pantallaIntro.classList.remove("intro-reproduciendo");
-  pantallaIntro.hidden = true;
-  mostrarPantallaModo();
+  pantallaIntroNodos.classList.remove("intro-reproduciendo");
+  pantallaIntroNodos.hidden = true;
+  mostrarPantallaAlta();
+}
+
+function finalizarIntroIA() {
+  if (introTimeoutId) {
+    clearTimeout(introTimeoutId);
+    introTimeoutId = null;
+  }
+  pantallaIntroIA.classList.remove("intro-reproduciendo");
+  pantallaIntroIA.hidden = true;
+  videoIntroIA.pause();
+  sessionStorage.setItem("introVista", "1");
+  mostrarPantallaAlta();
 }
 
 function precargarImagen(url) {
@@ -335,37 +363,39 @@ function esperarConTimeout(promesa, ms) {
   ]);
 }
 
-async function reproducirIntro() {
+async function reproducirIntroNodos() {
   if (sessionStorage.getItem("introVista") === "1" || prefiereMovimientoReducido()) {
-    pantallaIntro.hidden = true;
-    mostrarPantallaModo();
+    pantallaIntroNodos.hidden = true;
+    mostrarPantallaAlta();
     return;
   }
 
-  pantallaIntro.hidden = false;
+  pantallaModo.hidden = true;
+  pantallaIntroNodos.hidden = false;
   introCargando.hidden = false;
 
   let frames;
   try {
     frames = await apiGet("/api/intro");
   } catch (err) {
-    pantallaIntro.hidden = true;
-    mostrarPantallaModo();
+    pantallaIntroNodos.hidden = true;
+    mostrarPantallaAlta();
     return;
   }
 
   // Cada imagen puede tardar varios segundos en generarse y se piden de a
   // una (ver precargarSecuencial). Si tarda demasiado o falla, saltamos
-  // directo al menú en vez de dejar al jugador esperando indefinidamente.
+  // directo al alta de personaje en vez de dejar al jugador esperando
+  // indefinidamente.
   try {
     await esperarConTimeout(
       precargarSecuencial([frames.calle, frames.helicoptero]),
       45000,
     );
   } catch (err) {
-    pantallaIntro.hidden = true;
+    pantallaIntroNodos.hidden = true;
     introCargando.hidden = true;
-    mostrarPantallaModo();
+    mostrarPantallaAlta();
     return;
   }
 
@@ -375,13 +405,38 @@ async function reproducirIntro() {
 
   // Forzar reflow para que el navegador registre el estado inicial antes de
   // agregar la clase que dispara las animaciones (si no, a veces no arrancan).
-  void pantallaIntro.offsetWidth;
-  pantallaIntro.classList.add("intro-reproduciendo");
+  void pantallaIntroNodos.offsetWidth;
+  pantallaIntroNodos.classList.add("intro-reproduciendo");
   intentarMusicaIntro();
-  introTimeoutId = setTimeout(finalizarIntro, DURACION_INTRO_MS);
+  introTimeoutId = setTimeout(finalizarIntroNodos, DURACION_INTRO_MS);
 }
 
-btnSaltarIntro.addEventListener("click", finalizarIntro);
+btnSaltarIntroNodos.addEventListener("click", finalizarIntroNodos);
+
+// Intro de MODO LIBRE (IA): un video local en loop, sin audio propio y sin
+// nada que precargar por red (a diferencia de la de modo historia, que
+// depende de que Pollinations genere dos imágenes) — arranca al instante.
+function reproducirIntroIA() {
+  if (sessionStorage.getItem("introVista") === "1" || prefiereMovimientoReducido()) {
+    pantallaIntroIA.hidden = true;
+    mostrarPantallaAlta();
+    return;
+  }
+
+  pantallaModo.hidden = true;
+  pantallaIntroIA.hidden = false;
+  videoIntroIA.currentTime = 0;
+  videoIntroIA.play().catch(() => {
+    // Si el navegador bloquea el autoplay (raro, ya que el video va muted),
+    // igual se puede saltar con el botón — no rompe el flujo.
+  });
+
+  void pantallaIntroIA.offsetWidth;
+  pantallaIntroIA.classList.add("intro-reproduciendo");
+  introTimeoutId = setTimeout(finalizarIntroIA, DURACION_INTRO_IA_MS);
+}
+
+btnSaltarIntroIA.addEventListener("click", finalizarIntroIA);
 
 function renderVista(vista) {
   errorAccion.hidden = true;
@@ -560,8 +615,9 @@ btnReiniciar.addEventListener("click", () => {
 });
 
 // Al cargar la página: si ya había una partida en curso en esta sesión (por
-// ejemplo, recargaste el navegador), la retomamos directo, sin repetir la
-// cutscene. Si no, mostramos la intro y de ahí pasamos al alta de personaje.
+// ejemplo, recargaste el navegador), la retomamos directo, sin repetir nada.
+// Si no, la primera pantalla es la de elegir modo — la cutscene (distinta
+// según el modo) corre recién después de elegir, no antes.
 (async function inicializar() {
   let datos = null;
   try {
@@ -572,11 +628,10 @@ btnReiniciar.addEventListener("click", () => {
 
   if (datos && datos.activo) {
     sessionStorage.setItem("introVista", "1");
-    pantallaIntro.hidden = true;
     mostrarPantallaJuego();
     renderVista(datos.vista);
     return;
   }
 
-  reproducirIntro();
+  mostrarPantallaModo();
 })();
