@@ -66,6 +66,11 @@ function tipearTexto(elemento, texto) {
       terminar(texto);
     }
 
+    // Se cuelga del objeto (no solo del listener de click) para que la
+    // barra espaciadora también pueda completarlo desde afuera, sin tener
+    // acceso a este closure — ver el listener global de "keydown" más abajo.
+    esteTipeo.completar = completarInstantaneo;
+
     elemento.addEventListener("click", completarInstantaneo);
 
     let i = 0;
@@ -83,6 +88,22 @@ function tipearTexto(elemento, texto) {
     paso();
   });
 }
+
+// Atajo para el que se cansa del sonido de máquina de escribir: la barra
+// espaciadora completa al instante el tipeo en curso, igual que el click
+// sobre el texto. No se activa si el foco está en un campo de texto (ahí
+// espacio tiene que escribir un espacio) ni en un botón (ahí espacio ya
+// significa "clickear este botón", no queremos pisar eso).
+document.addEventListener("keydown", (evento) => {
+  if (evento.code !== "Space" && evento.key !== " ") return;
+  const activo = document.activeElement;
+  const enCampoInteractivo = activo && ["INPUT", "TEXTAREA", "BUTTON"].includes(activo.tagName);
+  if (enCampoInteractivo) return;
+  if (tipeoEnCurso && !tipeoEnCurso.cancelado) {
+    evento.preventDefault();
+    tipeoEnCurso.completar();
+  }
+});
 
 const pantallaIntro = document.getElementById("pantalla-intro");
 const introCapaCalle = document.getElementById("intro-capa-calle");
@@ -438,6 +459,7 @@ function mostrarEstadisticas(stats) {
   bloqueEstadisticas.hidden = false;
   listaEstadisticas.innerHTML = "";
   const filas = [
+    `🏆 Puntaje final: ${stats.puntaje}`,
     `🗓️ Llegaste a: ${stats.dia}`,
     `🧭 Camino recorrido: ${stats.camino} (alineación ${stats.alineacion >= 0 ? "+" : ""}${stats.alineacion})`,
     `🤝 Reputación barrial final: ${stats.reputacion}`,

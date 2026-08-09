@@ -143,6 +143,8 @@ def _opciones_disponibles(estado: EstadoJugador, nodo) -> List[int]:
             continue
         if opcion.excluye_flag and estado.tiene_flag(opcion.excluye_flag):
             continue
+        if opcion.requiere_salud_maxima is not None and estado.salud > opcion.requiere_salud_maxima:
+            continue
         disponibles.append(i)
     return disponibles or list(range(len(nodo.opciones)))
 
@@ -308,7 +310,7 @@ def vista_actual(estado: EstadoJugador) -> Dict[str, Any]:
             "dia": estado.etiqueta_capitulo(),
             "mision": estado.objetivo,
         },
-        "estadisticas": estado.generar_estadisticas() if nodo.es_final else None,
+        "estadisticas": estado.generar_estadisticas(nodo.final_tipo) if nodo.es_final else None,
         "mensaje_error": None,
         "mensaje_efecto": None,
         "mensaje_libre": None,
@@ -395,12 +397,18 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
         vista = vista_actual(estado)
         vista["mensaje_error"] = "Ya no podés hacer eso."
         return vista
+    if opcion.requiere_salud_maxima is not None and estado.salud > opcion.requiere_salud_maxima:
+        vista = vista_actual(estado)
+        vista["mensaje_error"] = "No lo necesitás por ahora."
+        return vista
 
     if opcion.salud_delta != (0, 0):
         estado.salud += random.randint(*opcion.salud_delta)
     estado.reputacion_barrial += opcion.reputacion_delta
     estado.alineacion = max(-100, min(100, estado.alineacion + opcion.alineacion_delta))
     estado.dinero.aplicar(opcion.dinero_delta)
+    if opcion.establece_categoria:
+        estado.objetivo_categoria = opcion.establece_categoria
     estado.flags.update(opcion.flags_add)
     for f in opcion.flags_quitar:
         estado.flags.discard(f)

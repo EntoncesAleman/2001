@@ -225,7 +225,7 @@ def vista_actual_libre(estado: EstadoJugador) -> Dict[str, Any]:
             "dia": estado.etiqueta_capitulo(),
             "mision": estado.objetivo,
         },
-        "estadisticas": estado.generar_estadisticas() if estado.es_final_libre else None,
+        "estadisticas": estado.generar_estadisticas(estado.final_tipo_libre) if estado.es_final_libre else None,
         "mensaje_error": None,
         "mensaje_efecto": None,
         "mensaje_libre": None,

@@ -151,6 +151,7 @@ def mostrar_estadisticas(stats: dict | None) -> None:
     if not stats:
         return
     lineas = [
+        f"🏆 Puntaje final: {stats['puntaje']}",
         f"🗓️  Llegaste a: {stats['dia']}",
         f"🧭 Camino recorrido: {stats['camino']} (alineación {stats['alineacion']:+d})",
         f"🤝 Reputación barrial final: {stats['reputacion']}",

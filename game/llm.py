@@ -113,7 +113,15 @@ def _generar_con_gemini(mensaje_usuario: str) -> Optional[str]:
         contents=mensaje_usuario,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
-            max_output_tokens=300,
+            max_output_tokens=500,
+            # Los modelos 2.5 de Gemini "piensan" por default, y esos tokens
+            # de razonamiento invisible salen del mismo presupuesto que
+            # max_output_tokens: sin esto, una narración corta de 3-6
+            # oraciones puede volver cortada a la mitad porque el modelo se
+            # gastó el presupuesto pensando antes de escribir la respuesta.
+            # No hace falta razonar para reescribir un párrafo con otro
+            # estilo, así que se apaga directamente.
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         ),
     )
     texto = (getattr(respuesta, "text", None) or "").strip()
@@ -365,8 +373,13 @@ def _generar_json_con_gemini(mensaje_usuario: str) -> Optional[Dict[str, Any]]:
         contents=mensaje_usuario,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT_LIBRE,
-            max_output_tokens=900,
+            max_output_tokens=1400,
             response_mime_type="application/json",
+            # Mismo motivo que en _generar_con_gemini: sin apagar el
+            # "thinking" de los modelos 2.5, el JSON de un turno completo de
+            # modo libre puede volver truncado (y por lo tanto no parseable)
+            # porque el presupuesto se gastó pensando antes de escribir.
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         ),
     )
     return _parsear_json_llm(getattr(respuesta, "text", None) or "")

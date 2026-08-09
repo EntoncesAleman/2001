@@ -34,6 +34,18 @@ class Opcion:
     requiere_flag: Optional[str] = None
     requiere_item: Optional[str] = None
     excluye_flag: Optional[str] = None
+    # Solo se ofrece si la salud actual es <= a este valor (ej: la opción de
+    # ir al hospital no tiene sentido mostrarla si estás en buen estado).
+    requiere_salud_maxima: Optional[int] = None
+
+    # Fija/sobrescribe estado.objetivo_categoria (una de las claves de
+    # CATEGORIAS_OBJETIVO en game/state.py: "plata", "familiar", "negocio",
+    # "generico"). Se usa en el nodo "elegir_mision": la categoría detectada
+    # automáticamente del texto libre del objetivo solo decide qué variante
+    # de apertura (inicio_plata/familiar/negocio/generico) ve el jugador;
+    # la elección explícita acá es la que de verdad cuenta para
+    # engine.py:elegir_final.
+    establece_categoria: Optional[str] = None
 
     destino_alt: Optional[str] = None
     prob_alt: float = 0.0
@@ -118,9 +130,9 @@ _registrar(Nodo(
         "mismo. Tenés que salir a resolver esto como sea."
     ),
     opciones=(
-        Opcion(texto="Salir para el barrio a ver qué se puede hacer", destino="esquina_barrio"),
+        Opcion(texto="Salir para el barrio a ver qué se puede hacer", destino="elegir_mision"),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="elegir_mision",
     capitulo=1,
 ))
 
@@ -134,9 +146,9 @@ _registrar(Nodo(
         "averiguar algo más."
     ),
     opciones=(
-        Opcion(texto="Salir para el barrio a preguntar y buscar noticias", destino="esquina_barrio"),
+        Opcion(texto="Salir para el barrio a preguntar y buscar noticias", destino="elegir_mision"),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="elegir_mision",
     capitulo=1,
 ))
 
@@ -150,9 +162,9 @@ _registrar(Nodo(
         "esta semana."
     ),
     opciones=(
-        Opcion(texto="Salir para el barrio a ver cómo sigue el día", destino="esquina_barrio"),
+        Opcion(texto="Salir para el barrio a ver cómo sigue el día", destino="elegir_mision"),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="elegir_mision",
     capitulo=1,
 ))
 
@@ -166,10 +178,44 @@ _registrar(Nodo(
         "de salir."
     ),
     opciones=(
-        Opcion(texto="Salir a la calle a ver cómo sigue el día", destino="esquina_barrio"),
+        Opcion(texto="Salir a la calle a ver cómo sigue el día", destino="elegir_mision"),
+    ),
+    destino_libre="elegir_mision",
+    capitulo=1,
+))
+
+_registrar(Nodo(
+    id="elegir_mision",
+    ubicacion="En la puerta de tu casa, a punto de salir",
+    narracion=(
+        "Antes de cruzar la puerta te quedás un segundo pensando bien qué es "
+        "lo que tenés que resolver hoy. No vas a poder ocuparte de todo a la "
+        "vez: elegí tu prioridad, porque de esto depende buena parte de lo "
+        "que te pase de acá en adelante."
+    ),
+    opciones=(
+        Opcion(
+            texto="Prioridad: pelear por tus ahorros en el banco",
+            destino="esquina_barrio",
+            establece_categoria="plata",
+        ),
+        Opcion(
+            texto="Prioridad: buscar noticias de un familiar del que no sabés nada",
+            destino="esquina_barrio",
+            establece_categoria="familiar",
+        ),
+        Opcion(
+            texto="Prioridad: proteger tu changa, tu local o tu comercio",
+            destino="esquina_barrio",
+            establece_categoria="negocio",
+        ),
+        Opcion(
+            texto="Prioridad: ninguna en particular, ver cómo se da el día y arreglártelas",
+            destino="esquina_barrio",
+            establece_categoria="generico",
+        ),
     ),
     destino_libre="esquina_barrio",
-    capitulo=1,
 ))
 
 
@@ -210,7 +256,7 @@ _registrar(Nodo(
         ),
         Opcion(texto="Agarrar tus cosas e intentar irte del Conurbano/CABA ahora mismo", destino="control_ruta"),
         Opcion(texto="Pasar por el comedor del barrio a ver si hay algo para comer", destino="comedor"),
-        Opcion(texto="Ir hasta el hospital de guardia si te sentís mal", destino="hospital"),
+        Opcion(texto="Ir hasta el hospital de guardia si te sentís mal", destino="hospital", requiere_salud_maxima=80),
         Opcion(
             texto="Comer algo de lo que tenés en la bolsa de mercadería",
             destino="volver_al_hub",
@@ -1003,7 +1049,7 @@ _registrar(Nodo(
         Opcion(texto="Ir al club de trueque a ver qué conseguís", destino="club_trueque"),
         Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial"),
         Opcion(texto="Pasar por el comedor", destino="comedor"),
-        Opcion(texto="Ir al hospital si lo necesitás", destino="hospital"),
+        Opcion(texto="Ir al hospital si lo necesitás", destino="hospital", requiere_salud_maxima=80),
         Opcion(texto="Pasar por el cibercafé", destino="cibercafe"),
         Opcion(texto="Parar en el bar de la esquina a ver si se te pasa el nudo en el estómago", destino="bar_de_la_esquina"),
         Opcion(texto="Intentar irte del Conurbano/CABA", destino="control_ruta"),
@@ -1072,7 +1118,7 @@ _registrar(Nodo(
         Opcion(texto="Ir a la estación a ver pasar (o subirte a) el tren de los cartoneros", destino="tren_cartoneros"),
         Opcion(texto="Ir al club de trueque", destino="club_trueque"),
         Opcion(texto="Pasar por el comedor", destino="comedor"),
-        Opcion(texto="Ir al hospital si lo necesitás", destino="hospital"),
+        Opcion(texto="Ir al hospital si lo necesitás", destino="hospital", requiere_salud_maxima=80),
         Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial"),
         Opcion(texto="Parar en el bar de la esquina un rato", destino="bar_de_la_esquina"),
     ),
@@ -1101,7 +1147,7 @@ _registrar(Nodo(
     opciones=(
         Opcion(texto="Ir al club de trueque", destino="club_trueque"),
         Opcion(texto="Pasar por el comedor", destino="comedor"),
-        Opcion(texto="Ir al hospital si lo necesitás", destino="hospital"),
+        Opcion(texto="Ir al hospital si lo necesitás", destino="hospital", requiere_salud_maxima=80),
         Opcion(texto="Parar en el bar de la esquina antes de volver", destino="bar_de_la_esquina"),
         Opcion(texto="Volver a tu barrio a parar la pelota", destino="calle_noche"),
     ),

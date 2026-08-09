@@ -40,6 +40,26 @@ HITOS_DESCRIPCION: Dict[str, str] = {
 }
 
 
+# Puntaje base según cómo termina la partida: no mide "qué tan legal o
+# ilegal jugaste" (eso ya lo describe "camino"), mide qué tan bien te fue.
+# Los finales de derrota clara puntúan negativo; los de objetivo logrado o
+# los easter eggs/logros difíciles puntúan fuerte en positivo; "solitario"
+# (sobrevivir sin más) es el punto neutro de referencia.
+FINAL_PUNTAJE_BONUS: Dict[str, int] = {
+    "objetivo_cumplido": 100,
+    "comunidad": 80,
+    "referente_piquetero": 150,
+    "presidente": 250,
+    "solitario": 0,
+    "cartonero": -30,
+    "condenado": -50,
+    "represion_derrota": -50,
+    "perdido": -60,
+    "muerte": -120,
+    "muerte_manifestacion": -120,
+}
+
+
 def resumen_camino(alineacion: int) -> str:
     """Etiqueta del "camino" según el eje legal/ilegal acumulado."""
     if alineacion <= -35:
@@ -277,7 +297,7 @@ class EstadoJugador:
         etiqueta = CAPITULO_LABEL.get(self.capitulo, "")
         return f"Día {self.capitulo}/{CAPITULOS_TOTALES} — {etiqueta}"
 
-    def generar_estadisticas(self) -> Dict[str, Any]:
+    def generar_estadisticas(self, final_tipo: Optional[str] = None) -> Dict[str, Any]:
         """Resumen de cómo se jugó la partida, para mostrar en la pantalla de
         final (ganado o perdido). Compartido por modo historia y modo libre,
         ver game/engine.py y game/modo_libre.py."""
@@ -286,6 +306,18 @@ class EstadoJugador:
             for flag, descripcion in HITOS_DESCRIPCION.items()
             if flag in self.flags
         ]
+        dinero_total = (
+            self.dinero.pesos + self.dinero.patacones + self.dinero.lecops + self.dinero.creditos_trueque
+        )
+        puntaje = (
+            self.reputacion_barrial
+            + self.salud // 2
+            + dinero_total // 10
+            + self.capitulo * 10
+            + len(hitos) * 5
+            + len(self.lugares_visitados)
+            + FINAL_PUNTAJE_BONUS.get(final_tipo or "", 0)
+        )
         return {
             "turnos": self.turno,
             "capitulo": self.capitulo,
@@ -296,6 +328,7 @@ class EstadoJugador:
             "dinero_final": self.dinero.describir(),
             "lugares_recorridos": len(self.lugares_visitados),
             "hitos": hitos,
+            "puntaje": puntaje,
         }
 
     def agregar_item(self, item: str) -> None:
