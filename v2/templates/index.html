@@ -15,23 +15,50 @@
 
     <main class="pantalla">
 
-      <!-- Pantalla 1: crear o unirse a una sala -->
+      <!-- Pantalla 1: elegir modo, y crear o unirse a una sala -->
       <section id="pantalla-inicio" class="panel">
-        <div class="columnas">
-          <div class="columna">
-            <h2>Crear una mesa nueva</h2>
-            <p class="texto-ayuda">Se genera un código de 5 letras para compartir con el resto.</p>
-            <button type="button" id="btn-crear-sala">CREAR MESA</button>
-          </div>
-          <div class="columna">
-            <h2>Unirte a una mesa</h2>
-            <label>
-              Código de la mesa
-              <input type="text" id="input-codigo-sala" maxlength="5" placeholder="Ej: K7XPQ" style="text-transform:uppercase" />
-            </label>
-            <button type="button" id="btn-ir-a-unirse">CONTINUAR</button>
+        <div class="opciones-modo">
+          <button type="button" id="btn-tab-historia" class="tab-modo tab-activa">MESA CHICA (nodos)</button>
+          <button type="button" id="btn-tab-ia" class="tab-modo">MODO IA</button>
+        </div>
+
+        <div id="tab-contenido-historia">
+          <div class="columnas">
+            <div class="columna">
+              <h2>Crear una mesa nueva</h2>
+              <p class="texto-ayuda">Se genera un código de 5 letras para compartir con el resto.
+                Arranca sola con 3 jugadores, hasta 6, y no se puede sumar gente una vez en curso.</p>
+              <button type="button" id="btn-crear-sala">CREAR MESA</button>
+            </div>
+            <div class="columna">
+              <h2>Unirte a una mesa</h2>
+              <label>
+                Código de la mesa
+                <input type="text" id="input-codigo-sala" maxlength="5" placeholder="Ej: K7XPQ" style="text-transform:uppercase" />
+              </label>
+              <button type="button" id="btn-ir-a-unirse">CONTINUAR</button>
+            </div>
           </div>
         </div>
+
+        <div id="tab-contenido-ia" hidden>
+          <p class="texto-ayuda">
+            Acá la gente entra y sale libremente, incluso con la partida ya arrancada (hasta 6 a la
+            vez). Cada uno improvisa su historia con una IA. Arranca sola con 3 jugadores. Gana quien
+            tenga más puntaje al final; si nadie completó su misión, pierde toda la mesa.
+          </p>
+          <p id="ia-no-disponible" class="mensaje-error" hidden>
+            El modo IA necesita una API key de Gemini o Claude configurada en el servidor. Por ahora
+            solo está disponible la mesa chica sin IA.
+          </p>
+          <div id="ia-disponible-bloque">
+            <h2>Mesas IA abiertas ahora</h2>
+            <ul id="lista-mesas-ia" class="lista-jugadores"></ul>
+            <p id="ia-sin-mesas" class="texto-ayuda" hidden>No hay ninguna mesa IA abierta ahora mismo.</p>
+            <button type="button" id="btn-crear-sala-ia">CREAR UNA MESA IA NUEVA</button>
+          </div>
+        </div>
+
         <p id="error-inicio" class="mensaje-error" hidden></p>
       </section>
 
@@ -104,6 +131,7 @@
             <ul id="tabla-jugadores" class="lista-jugadores"></ul>
             <h3>Lo que va pasando</h3>
             <ul id="feed-eventos" class="feed-eventos"></ul>
+            <button type="button" id="btn-abandonar-mesa" class="boton-peligro" hidden>ABANDONAR MESA</button>
           </div>
         </div>
       </section>

@@ -123,3 +123,20 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .feed-eventos li.evento-cierre { color: var(--rojo); font-weight: bold; }
 
 .pie { text-align: center; color: #5b6aa0; font-size: 0.8rem; margin-top: 1.5rem; }
+
+.opciones-modo { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; }
+.tab-modo {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--borde);
+  opacity: 0.6;
+}
+.tab-modo.tab-activa { background: #1e3a7a; opacity: 1; }
+
+.boton-peligro {
+  margin-top: 0.8rem;
+  background: #4a1414;
+  border-color: #7a2a2a;
+  width: 100%;
+}
+.boton-peligro:hover { background: #6a1c1c; }

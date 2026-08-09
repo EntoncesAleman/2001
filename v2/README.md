@@ -1,9 +1,16 @@
 # v2 — Mesa multijugador (experimental)
 
 Versión aparte del juego original (que sigue en la raíz del repo, sin
-tocar). Mesa chica sin IA: hasta 6 jugadores comparten una sala, cada uno
-juega su propio personaje sobre el mismo grafo de nodos de `game/story.py`
-(reutilizado tal cual), y todos ven en vivo lo que hacen los demás.
+tocar). Hasta 6 jugadores comparten una sala y todos ven en vivo lo que
+hacen los demás. Dos modos, elegibles desde la pantalla de inicio:
+
+- **Mesa chica (sin IA)**: cada uno juega su propio personaje sobre el
+  mismo grafo de nodos de `game/story.py` (reutilizado tal cual). No se
+  puede sumar gente una vez que la partida arrancó.
+- **Modo IA**: la escena/opciones de cada jugador las genera un LLM
+  (`game/llm.py` + `game/modo_libre.py`, mismo motor que el modo libre del
+  v1), y la gente puede entrar y salir en cualquier momento, incluso con la
+  partida ya arrancada.
 
 ## Cómo correrlo en local
 
@@ -15,7 +22,11 @@ python3 v2/app.py       # sirve en http://localhost:5100
 ```
 
 Necesita las variables de entorno `SUPABASE_URL` y `SUPABASE_KEY` (la key
-"anon"/pública). Si no se setean, usa por defecto el proyecto Supabase
+"anon"/pública). Para el modo IA hace falta además `GEMINI_API_KEY` o
+`ANTHROPIC_API_KEY` (misma variable que usa el v1) — sin ninguna de las dos,
+`/api/modo_disponible` da `libre_disponible: false` y el frontend deja esa
+pestaña deshabilitada, mostrando solo la mesa chica sin IA. Si no se setean
+las de Supabase, usa por defecto el proyecto Supabase
 `odisea-2001-multijugador` creado para este prototipo — andá a
 [supabase.com/dashboard](https://supabase.com/dashboard) con la cuenta
 correspondiente para ver/administrar los datos, o crear tu propio proyecto
@@ -46,7 +57,20 @@ y correr el SQL de `esquema.sql` (ver abajo) en uno nuevo.
 ## Reglas de la mesa
 
 - Mínimo 3 jugadores para arrancar (automático, sin botón), máximo 6.
-- No se puede sumar gente una vez que la partida ya está `en_curso`.
+- Modo historia: no se puede sumar gente una vez que la partida ya está
+  `en_curso`. Modo IA: sí se puede, en cualquier momento, mientras haya
+  lugar (menos de 6 jugadores *conectados*).
+- Modo IA: dejar la mesa (botón "abandonar" o cerrar la pestaña/perder la
+  conexión de socket) marca al jugador como `conectado = false` sin cortar
+  la partida para el resto — `salas.verificar_fin_de_partida` solo exige
+  que todos los jugadores *conectados* hayan llegado a su final para cerrar
+  la mesa por esa vía (el presupuesto de turnos compartido la cierra igual
+  si se agota). El puntaje/objetivo de quien se fue sigue contando para el
+  criterio de victoria al cierre.
+- Modo IA: buscador de mesas abiertas (`GET /api/salas/ia/abiertas`, "varios
+  servidores donde la gente pueda entrar") — lista las mesas de modo IA que
+  todavía tienen lugar; `unirse_a_mesa_ia` (sin pasar código) se suma a la
+  primera que encuentra o crea una nueva si no hay ninguna abierta.
 - Presupuesto de turnos COMPARTIDO por toda la mesa (columna
   `salas.limite_turnos`, 300 por defecto): se suma 1 cada vez que
   cualquier jugador hace una acción. "Se acaban los días" cuando se agota
@@ -69,12 +93,14 @@ y correr el SQL de `esquema.sql` (ver abajo) en uno nuevo.
 
 ## Qué falta (no incluido en este primer corte)
 
-- **Modo con IA** (gente que entra y sale en cualquier momento, hasta 6
-  jugadores, narrador compartido vía LLM): esta v2 solo cubre la "mesa
-  chica sin IA" pedida como primer paso. Se apoyaría en la misma base
-  (`salas`/`jugadores`/`eventos`) sumando un narrador que reemplace las
-  respuestas de `game/story.py` por las de `game/llm.py` en modo libre,
-  compartido entre todos los que estén conectados en ese momento.
+- **Modo IA en Vercel**: las funciones serverless de Python en Vercel no
+  están pensadas para un proceso Flask-SocketIO de larga duración —el
+  polling debería andar igual (corre en paralelo, no depende del socket),
+  pero el WebSocket puede no sostenerse ahí. Falta probarlo en ese entorno
+  concreto.
+- El mapa en memoria `_sid_a_jugador` de `v2/app.py` (para detectar
+  desconexiones de socket) es por proceso: si el día de mañana se corre con
+  más de un worker, hay que moverlo a Supabase o algo compartido.
 - **Efectos mecánicos de "mundo compartido"** más allá del saqueo del
   supermercado: hoy solo ese caso está enganchado (ver
   `salas._mundo_anotar_saqueo_si_corresponde`); es un patrón fácil de

@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from game import engine, story  # noqa: E402
+from game import engine, llm, modo_libre, story  # noqa: E402
 from game.state import EstadoJugador  # noqa: E402
 
 from supabase_client import obtener_cliente  # noqa: E402
@@ -153,20 +153,83 @@ class ErrorSala(Exception):
     """Error de reglas de negocio (sala llena, ya arrancó, nombre repetido...)."""
 
 
+# ---------------------------------------------------------------------------
+# Despacho por modo: mismo patrón que api/index.py del v1 (_motor_de) — la
+# única diferencia entre modo historia y modo IA es a qué funciones de
+# game/engine.py vs. game/modo_libre.py se llama. El resto de v2 (sala,
+# lobby, turno compartido, feed, condición de cierre) es idéntico para los
+# dos modos.
+# ---------------------------------------------------------------------------
+
+def _es_final(estado: EstadoJugador) -> bool:
+    if estado.modo == "libre":
+        return estado.es_final_libre
+    return story.obtener_nodo(estado.nodo_actual).es_final
+
+
+def _final_tipo(estado: EstadoJugador) -> Optional[str]:
+    if not _es_final(estado):
+        return None
+    if estado.modo == "libre":
+        return estado.final_tipo_libre
+    return story.obtener_nodo(estado.nodo_actual).final_tipo
+
+
+def _vista_actual(estado: EstadoJugador) -> Dict[str, Any]:
+    return modo_libre.vista_actual_libre(estado) if estado.modo == "libre" else engine.vista_actual(estado)
+
+
+# Alias público: v2/app.py necesita esto para reconstruir la vista de un
+# jugador (ej. al recargar la página) sin importarle si es modo historia o
+# modo libre.
+vista_actual = _vista_actual
+
+
+def _elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
+    if estado.modo == "libre":
+        return modo_libre.elegir_opcion_libre(estado, indice_humano)
+    return engine.elegir_opcion(estado, indice_humano)
+
+
+def _accion_libre(estado: EstadoJugador, texto: str) -> Dict[str, Any]:
+    if estado.modo == "libre":
+        return modo_libre.accion_libre_libre(estado, texto)
+    return engine.accion_libre(estado, texto)
+
+
 def unirse_a_sala(codigo: str, nombre: str, trasfondo: str, barrio: str, objetivo: str) -> Tuple[Dict, Dict]:
     sala = obtener_sala_por_codigo(codigo)
     if sala is None:
         raise ErrorSala("No existe ninguna sala con ese código.")
-    if sala["estado"] != "esperando":
-        raise ErrorSala("Esta partida ya arrancó o ya terminó — no se puede sumar gente a mitad de camino.")
+    if sala["estado"] == "terminada":
+        raise ErrorSala("Esta partida ya terminó.")
+
+    # El modo historia es "mesa chica": no se puede entrar a mitad de
+    # camino. El modo IA está pensado justamente para que la gente entre y
+    # salga, así que permite sumarse aunque ya esté en curso.
+    if sala["estado"] == "en_curso" and sala["modo"] != "libre":
+        raise ErrorSala("Esta partida ya arrancó — no se puede sumar gente a mitad de camino.")
 
     jugadores_actuales = listar_jugadores(sala["id"])
-    if len(jugadores_actuales) >= sala["max_jugadores"]:
+    activos = [j for j in jugadores_actuales if j["conectado"]]
+    if len(activos) >= sala["max_jugadores"]:
         raise ErrorSala(f"La sala ya tiene el máximo de {sala['max_jugadores']} jugadores.")
-    if any(j["nombre"].strip().lower() == nombre.strip().lower() for j in jugadores_actuales):
+    if any(j["nombre"].strip().lower() == nombre.strip().lower() for j in activos):
         raise ErrorSala("Ya hay alguien en esta sala con ese nombre — elegí otro.")
 
-    estado = engine.crear_estado(nombre, trasfondo, barrio, objetivo)
+    if sala["modo"] == "libre":
+        if not llm.modelo_configurado():
+            raise ErrorSala(
+                "El modo IA necesita una API key de Gemini o Claude configurada en el servidor."
+            )
+        estado = modo_libre.iniciar_partida_libre(nombre, trasfondo, barrio, objetivo)
+        if estado is None:
+            raise ErrorSala(
+                "No se pudo generar la primera escena (falló la llamada a la IA). Probá de nuevo en un momento."
+            )
+    else:
+        estado = engine.crear_estado(nombre, trasfondo, barrio, objetivo)
+
     es_anfitrion = len(jugadores_actuales) == 0
 
     fila = _fila_desde_estado(sala["id"], estado)
@@ -178,6 +241,42 @@ def unirse_a_sala(codigo: str, nombre: str, trasfondo: str, barrio: str, objetiv
 
     sala = intentar_iniciar_sala(sala["id"]) or sala
     return sala, jugador
+
+
+def unirse_a_mesa_ia(
+    nombre: str, trasfondo: str, barrio: str, objetivo: str, codigo: Optional[str] = None
+) -> Tuple[Dict, Dict]:
+    """Unión al modo IA sin necesitar un código exacto: si no se pasa uno, se
+    busca una mesa abierta con lugar (de las "varios servidores donde la
+    gente pueda entrar") o se crea una nueva si no hay ninguna disponible."""
+    if codigo:
+        return unirse_a_sala(codigo, nombre, trasfondo, barrio, objetivo)
+    abiertas = listar_salas_abiertas(modo="libre")
+    if abiertas:
+        return unirse_a_sala(abiertas[0]["codigo"], nombre, trasfondo, barrio, objetivo)
+    sala_nueva = crear_sala("libre")
+    return unirse_a_sala(sala_nueva["codigo"], nombre, trasfondo, barrio, objetivo)
+
+
+def listar_salas_abiertas(modo: str = "libre", limite: int = 20) -> List[Dict[str, Any]]:
+    """Mesas de ese modo que todavía tienen lugar (para el buscador de mesas
+    del modo IA: "varios servidores donde la gente pueda entrar")."""
+    resultado = (
+        _cliente()
+        .table("salas")
+        .select("*")
+        .eq("modo", modo)
+        .neq("estado", "terminada")
+        .order("creada_en", desc=True)
+        .limit(limite)
+        .execute()
+    )
+    con_cupo = []
+    for sala in resultado.data:
+        activos = [j for j in listar_jugadores(sala["id"]) if j["conectado"]]
+        if len(activos) < sala["max_jugadores"]:
+            con_cupo.append({**sala, "cantidad_jugadores": len(activos)})
+    return con_cupo
 
 
 def intentar_iniciar_sala(sala_id: str) -> Optional[Dict[str, Any]]:
@@ -203,7 +302,8 @@ def intentar_iniciar_sala(sala_id: str) -> Optional[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def _fila_desde_estado(sala_id: str, estado: EstadoJugador, es_anfitrion: bool = False) -> Dict[str, Any]:
-    nodo = story.obtener_nodo(estado.nodo_actual)
+    es_final = _es_final(estado)
+    final_tipo = _final_tipo(estado)
     return {
         "sala_id": sala_id,
         "nombre": estado.nombre,
@@ -212,7 +312,12 @@ def _fila_desde_estado(sala_id: str, estado: EstadoJugador, es_anfitrion: bool =
         "objetivo": estado.objetivo,
         "objetivo_categoria": estado.objetivo_categoria,
         "zona_gba": estado.zona_gba,
-        "nodo_actual": estado.nodo_actual,
+        # En modo libre no hay un id de nodo fijo (game/story.py no aplica);
+        # "libre" acá es solo una etiqueta para no dejar la columna vacía.
+        # game/modo_libre.py ya mantiene estado.ubicacion actualizada con lo
+        # que reporta el LLM cada turno, así que esto es uniforme para los
+        # dos modos — ver el campo "ubicacion" en el JSON que devuelve.
+        "nodo_actual": estado.nodo_actual if estado.modo != "libre" else "libre",
         "ubicacion": estado.ubicacion,
         "salud": estado.salud,
         "inventario": list(estado.inventario),
@@ -225,9 +330,9 @@ def _fila_desde_estado(sala_id: str, estado: EstadoJugador, es_anfitrion: bool =
         "turno": estado.turno,
         "vivo": estado.vivo,
         "orden_opciones": list(estado.orden_opciones),
-        "es_final": nodo.es_final,
-        "final_tipo": nodo.final_tipo if nodo.es_final else None,
-        "puntaje": estado.generar_estadisticas(nodo.final_tipo if nodo.es_final else None)["puntaje"],
+        "es_final": es_final,
+        "final_tipo": final_tipo,
+        "puntaje": estado.generar_estadisticas(final_tipo)["puntaje"],
         "es_anfitrion": es_anfitrion,
         "estado_json": estado.to_dict(),
         "actualizado_en": _ahora(),
@@ -322,21 +427,20 @@ def jugar_opcion(jugador_id: str, indice_humano: int) -> Dict[str, Any]:
         raise ErrorSala("La partida no está en curso.")
 
     estado = cargar_estado_jugador(jugador_row)
-    if not story.obtener_nodo(estado.nodo_actual).es_final:
+    if not _es_final(estado):
         flags_antes = set(estado.flags)
-        vista = engine.elegir_opcion(estado, indice_humano)
+        vista = _elegir_opcion(estado, indice_humano)
         _anunciar_hitos_nuevos(sala["id"], jugador_id, estado.nombre, flags_antes, set(estado.flags))
         _mundo_anotar_saqueo_si_corresponde(sala["id"], jugador_id, estado)
     else:
-        vista = engine.vista_actual(estado)
+        vista = _vista_actual(estado)
 
     guardar_estado_jugador(jugador_id, sala["id"], estado)
     _cliente().table("salas").update({"turno_global": sala["turno_global"] + 1}).eq("id", sala["id"]).execute()
 
-    nodo = story.obtener_nodo(estado.nodo_actual)
-    if nodo.es_final:
+    if _es_final(estado):
         registrar_evento(
-            sala["id"], "final_personal", f"{estado.nombre} llegó a un final: {nodo.final_tipo}.", jugador_id
+            sala["id"], "final_personal", f"{estado.nombre} llegó a un final: {_final_tipo(estado)}.", jugador_id
         )
 
     verificar_fin_de_partida(sala["id"])
@@ -354,16 +458,46 @@ def jugar_accion_libre(jugador_id: str, texto: str) -> Dict[str, Any]:
 
     estado = cargar_estado_jugador(jugador_row)
     flags_antes = set(estado.flags)
-    vista = engine.accion_libre(estado, texto)
+    vista = _accion_libre(estado, texto)
     _anunciar_hitos_nuevos(sala["id"], jugador_id, estado.nombre, flags_antes, set(estado.flags))
     _mundo_anotar_saqueo_si_corresponde(sala["id"], jugador_id, estado)
 
     guardar_estado_jugador(jugador_id, sala["id"], estado)
     _cliente().table("salas").update({"turno_global": sala["turno_global"] + 1}).eq("id", sala["id"]).execute()
 
+    if _es_final(estado):
+        registrar_evento(
+            sala["id"], "final_personal", f"{estado.nombre} llegó a un final: {_final_tipo(estado)}.", jugador_id
+        )
+
     verificar_fin_de_partida(sala["id"])
     vista = anotar_vista_con_mundo(sala["id"], vista)
     return vista
+
+
+# ---------------------------------------------------------------------------
+# Presencia: entrar y salir sin cortarle la partida a los demás (modo IA)
+# ---------------------------------------------------------------------------
+
+def marcar_conectado(jugador_id: str) -> None:
+    _cliente().table("jugadores").update({"conectado": True}).eq("id", jugador_id).execute()
+
+
+def marcar_desconectado(jugador_id: str) -> None:
+    _cliente().table("jugadores").update({"conectado": False}).eq("id", jugador_id).execute()
+
+
+def abandonar_sala(jugador_id: str) -> Optional[Dict[str, Any]]:
+    """Abandono explícito (botón "abandonar mesa") o desconexión detectada
+    por Socket.IO: no corta la partida para el resto — ver
+    verificar_fin_de_partida, que deja de esperar a quien se fue."""
+    jugador_row = obtener_jugador(jugador_id)
+    if jugador_row is None:
+        return None
+    marcar_desconectado(jugador_id)
+    registrar_evento(jugador_row["sala_id"], "abandono", f"{jugador_row['nombre']} dejó la mesa.", jugador_id)
+    verificar_fin_de_partida(jugador_row["sala_id"])
+    return obtener_sala(jugador_row["sala_id"])
 
 
 # ---------------------------------------------------------------------------
@@ -381,7 +515,14 @@ def verificar_fin_de_partida(sala_id: str) -> Optional[Dict[str, Any]]:
         return sala
 
     jugadores = listar_jugadores(sala_id)
-    todos_terminaron = jugadores and all(j["es_final"] or not j["vivo"] for j in jugadores)
+    # Para decidir si "ya no tiene sentido seguir esperando" solo cuentan
+    # los jugadores CONECTADOS: en modo IA la gente entra y sale, y no hay
+    # que dejar la sala colgada esperando a alguien que ya se fue. Para el
+    # cierre en sí (quién ganó, si alguien cumplió la misión) sí se
+    # considera a todos los que jugaron alguna vez, se hayan ido o no — su
+    # progreso cuenta igual.
+    activos = [j for j in jugadores if j["conectado"]]
+    todos_terminaron = activos and all(j["es_final"] or not j["vivo"] for j in activos)
     se_acabo_el_tiempo = sala["turno_global"] >= sala["limite_turnos"]
 
     if not todos_terminaron and not se_acabo_el_tiempo:

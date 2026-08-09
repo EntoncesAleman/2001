@@ -17,6 +17,7 @@ let salaActual = null;
 let jugadorActual = null;
 let ultimoEventoId = 0;
 let socket = null;
+let modoElegido = "historia"; // "historia" (mesa chica) | "libre" (modo IA)
 
 function ocultarTodas() {
   [pantallaInicio, pantallaAlta, pantallaLobby, pantallaJuego, pantallaCierre].forEach((p) => {
@@ -46,6 +47,7 @@ async function apiGet(url) {
 
 $("btn-crear-sala").addEventListener("click", async () => {
   try {
+    modoElegido = "historia";
     const { sala } = await apiPost("/api/salas", { modo: "historia" });
     codigoSala = sala.codigo;
     $("codigo-mostrado").textContent = codigoSala;
@@ -61,6 +63,7 @@ $("btn-ir-a-unirse").addEventListener("click", async () => {
   if (!codigo) return;
   try {
     await apiGet(`/api/salas/${codigo}`);
+    modoElegido = "historia";
     codigoSala = codigo;
     $("codigo-mostrado").textContent = codigoSala;
     ocultarTodas();
@@ -76,6 +79,63 @@ function mostrarErrorInicio(mensaje) {
   el.hidden = false;
 }
 
+// --- Pantalla 1 (modo IA): tabs, disponibilidad y buscador de mesas ------
+
+$("btn-tab-historia").addEventListener("click", () => cambiarTab("historia"));
+$("btn-tab-ia").addEventListener("click", () => cambiarTab("ia"));
+
+function cambiarTab(tab) {
+  const esIa = tab === "ia";
+  $("btn-tab-historia").classList.toggle("tab-activa", !esIa);
+  $("btn-tab-ia").classList.toggle("tab-activa", esIa);
+  $("tab-contenido-historia").hidden = esIa;
+  $("tab-contenido-ia").hidden = !esIa;
+  if (esIa) cargarTabIa();
+}
+
+async function cargarTabIa() {
+  try {
+    const { libre_disponible } = await apiGet("/api/modo_disponible");
+    $("ia-no-disponible").hidden = libre_disponible;
+    $("ia-disponible-bloque").hidden = !libre_disponible;
+    if (libre_disponible) await cargarMesasIaAbiertas();
+  } catch (err) {
+    mostrarErrorInicio(err.message);
+  }
+}
+
+async function cargarMesasIaAbiertas() {
+  const { salas: mesas } = await apiGet("/api/salas/ia/abiertas");
+  const lista = $("lista-mesas-ia");
+  lista.innerHTML = "";
+  $("ia-sin-mesas").hidden = mesas.length > 0;
+  mesas.forEach((mesa) => {
+    const li = document.createElement("li");
+    const nombre = document.createElement("span");
+    nombre.textContent = `Mesa ${mesa.codigo} (${mesa.estado})`;
+    const detalle = document.createElement("span");
+    detalle.textContent = `${mesa.cantidad_jugadores}/${mesa.max_jugadores} jugadores`;
+    const boton = document.createElement("button");
+    boton.type = "button";
+    boton.textContent = "SUMARME";
+    boton.addEventListener("click", () => irAAltaIa(mesa.codigo));
+    li.appendChild(nombre);
+    li.appendChild(detalle);
+    li.appendChild(boton);
+    lista.appendChild(li);
+  });
+}
+
+$("btn-crear-sala-ia").addEventListener("click", () => irAAltaIa(null));
+
+function irAAltaIa(codigo) {
+  modoElegido = "libre";
+  codigoSala = codigo;
+  $("codigo-mostrado").textContent = codigo || "(se crea una mesa IA nueva al confirmar)";
+  ocultarTodas();
+  pantallaAlta.hidden = false;
+}
+
 // --- Pantalla 2: alta de personaje -----------------------------------------
 
 $("form-alta").addEventListener("submit", async (evento) => {
@@ -83,13 +143,18 @@ $("form-alta").addEventListener("submit", async (evento) => {
   const datos = new FormData(evento.target);
   const errorEl = $("error-alta");
   errorEl.hidden = true;
+  const cuerpo = {
+    nombre: datos.get("nombre"),
+    trasfondo: datos.get("trasfondo"),
+    barrio: datos.get("barrio"),
+    objetivo: datos.get("objetivo"),
+  };
   try {
-    const { sala, jugador } = await apiPost(`/api/salas/${codigoSala}/unirse`, {
-      nombre: datos.get("nombre"),
-      trasfondo: datos.get("trasfondo"),
-      barrio: datos.get("barrio"),
-      objetivo: datos.get("objetivo"),
-    });
+    const { sala, jugador } =
+      modoElegido === "libre"
+        ? await apiPost("/api/salas/ia/unirse", { ...cuerpo, codigo: codigoSala })
+        : await apiPost(`/api/salas/${codigoSala}/unirse`, cuerpo);
+    codigoSala = sala.codigo;
     salaActual = sala;
     jugadorActual = jugador;
     conectarSocket();
@@ -152,7 +217,32 @@ async function entrarAPantallaJuego() {
   pantallaJuego.hidden = false;
   await refrescarVistaPropia();
   await refrescarMesa();
+  // Abandonar mesa a mitad de partida solo tiene sentido en modo IA: en
+  // modo historia todos arrancan y terminan juntos, no hay "entra y sale".
+  $("btn-abandonar-mesa").hidden = salaActual.modo !== "libre";
 }
+
+$("btn-abandonar-mesa").addEventListener("click", async () => {
+  if (!jugadorActual) return;
+  if (!confirm("¿Seguro que querés dejar la mesa? Los demás siguen jugando sin vos.")) return;
+  try {
+    await apiPost(`/api/jugadores/${jugadorActual.id}/abandonar`, {});
+  } catch (err) {
+    // Si falla el POST igual volvemos al inicio: no tiene sentido forzar
+    // al jugador a quedarse en una pantalla de juego rota.
+  }
+  window.location.reload();
+});
+
+// Si cierra la pestaña o navega afuera en medio de una mesa IA, avisamos al
+// servidor con sendBeacon (best-effort: no espera respuesta ni bloquea el
+// unload). El disconnect de Socket.IO ya cubre casi todos los casos, esto es
+// solo una red de contención para cuando el socket tarda en notarlo.
+window.addEventListener("pagehide", () => {
+  if (jugadorActual && salaActual && salaActual.modo === "libre") {
+    navigator.sendBeacon(`/api/jugadores/${jugadorActual.id}/abandonar`);
+  }
+});
 
 async function refrescarVistaPropia() {
   const { vista, jugador, sala } = await apiGet(`/api/jugadores/${jugadorActual.id}`);
@@ -283,7 +373,7 @@ function mostrarCierre(sala, jugadores) {
 function conectarSocket() {
   socket = io();
   socket.on("connect", () => {
-    socket.emit("unirse_sala", { sala_id: jugadorActual.sala_id });
+    socket.emit("unirse_sala", { sala_id: jugadorActual.sala_id, jugador_id: jugadorActual.id });
   });
   socket.on("actualizacion", (payload) => {
     if (payload.evento) agregarAlFeed(payload.evento);

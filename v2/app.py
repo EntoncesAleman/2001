@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import salas  # noqa: E402
-from game import engine  # noqa: E402
+from game import llm  # noqa: E402
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -100,13 +100,56 @@ def api_unirse(codigo):
     return jsonify({"sala": sala, "jugador": jugador})
 
 
+@app.route("/api/modo_disponible")
+def api_modo_disponible():
+    return jsonify({"libre_disponible": llm.modelo_configurado()})
+
+
+@app.route("/api/salas/ia/abiertas")
+def api_salas_ia_abiertas():
+    return jsonify({"salas": salas.listar_salas_abiertas(modo="libre")})
+
+
+@app.route("/api/salas/ia/unirse", methods=["POST"])
+def api_salas_ia_unirse():
+    body = request.get_json(silent=True) or {}
+    nombre = str(body.get("nombre", "")).strip()[:80]
+    trasfondo = str(body.get("trasfondo", ""))[:200]
+    barrio = str(body.get("barrio", ""))[:120]
+    objetivo = str(body.get("objetivo", ""))[:200]
+    codigo = body.get("codigo")
+    codigo = str(codigo).strip().upper() if codigo else None
+    if not nombre or not trasfondo or not barrio or not objetivo:
+        return jsonify({"error": "Completá los cuatro datos para sumarte a la mesa."}), 400
+    try:
+        sala, jugador = salas.unirse_a_mesa_ia(nombre, trasfondo, barrio, objetivo, codigo)
+    except salas.ErrorSala as err:
+        return jsonify({"error": str(err)}), 400
+    _emitir_actualizacion(sala["id"], {"tipo": "union", "mensaje": f"{nombre} se sumó a la mesa."})
+    return jsonify({"sala": sala, "jugador": jugador})
+
+
+@app.route("/api/jugadores/<jugador_id>/abandonar", methods=["POST"])
+def api_jugador_abandonar(jugador_id):
+    jugador_row = salas.obtener_jugador(jugador_id)
+    if jugador_row is None:
+        return jsonify({"error": "No se encontró ese jugador."}), 404
+    # abandonar_sala() ya deja registrado el evento "dejó la mesa" en la
+    # tabla eventos (lo ven tanto el polling como el próximo fetch); acá
+    # solo empujamos el push de socket para que se actualice en el momento.
+    sala = salas.abandonar_sala(jugador_id)
+    if sala:
+        _emitir_actualizacion(sala["id"])
+    return jsonify({"ok": True})
+
+
 @app.route("/api/jugadores/<jugador_id>", methods=["GET"])
 def api_jugador_vista(jugador_id):
     jugador_row = salas.obtener_jugador(jugador_id)
     if jugador_row is None:
         return jsonify({"error": "No se encontró ese jugador."}), 404
     estado = salas.cargar_estado_jugador(jugador_row)
-    vista = engine.vista_actual(estado)
+    vista = salas.vista_actual(estado)
     vista = salas.anotar_vista_con_mundo(jugador_row["sala_id"], vista)
     sala = salas.obtener_sala(jugador_row["sala_id"])
     return jsonify({"vista": vista, "jugador": jugador_row, "sala": sala})
@@ -142,11 +185,35 @@ def api_jugador_accion(jugador_id):
     return jsonify({"vista": vista})
 
 
+# Mapa en memoria sid de socket -> jugador_id, para poder marcar a alguien
+# como desconectado si cierra la pestaña o se le corta la red, sin que eso
+# trabe la partida para el resto (sobre todo pensado para el modo IA, donde
+# "la gente entra y sale"). Ojo: esto es por proceso — si el día de mañana
+# se corre con más de un worker, hay que mover esto a Supabase o a algo
+# compartido en vez de un dict en memoria.
+_sid_a_jugador: dict[str, str] = {}
+
+
 @socketio.on("unirse_sala")
 def socket_unirse_sala(data):
-    sala_id = (data or {}).get("sala_id")
+    datos = data or {}
+    sala_id = datos.get("sala_id")
+    jugador_id = datos.get("jugador_id")
     if sala_id:
         join_room(sala_id)
+    if jugador_id:
+        _sid_a_jugador[request.sid] = jugador_id
+        salas.marcar_conectado(jugador_id)
+
+
+@socketio.on("disconnect")
+def socket_desconectar():
+    jugador_id = _sid_a_jugador.pop(request.sid, None)
+    if not jugador_id:
+        return
+    sala = salas.abandonar_sala(jugador_id)
+    if sala:
+        _emitir_actualizacion(sala["id"])
 
 
 if __name__ == "__main__":
