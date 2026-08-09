@@ -12,7 +12,14 @@ import random
 from typing import Any, Dict, List, Optional
 
 from game import free_text, images, llm, story
-from game.state import Dinero, EstadoJugador, ZONA_INFO, detectar_categoria_objetivo, detectar_zona_gba
+from game.state import (
+    Dinero,
+    EstadoJugador,
+    ZONA_INFO,
+    detectar_categoria_objetivo,
+    detectar_zona_gba,
+    resumen_camino,
+)
 
 # El primer nodo depende de qué objetivo eligió el jugador al crear el
 # personaje: la aventura puede *empezar* de formas distintas (así no hay una
@@ -130,6 +137,19 @@ def _opcion_extra_disponible(estado: EstadoJugador, nodo) -> bool:
 MAX_OPCIONES_VISIBLES = 5
 
 
+def _camino_permite(estado: EstadoJugador, requiere_camino: str) -> bool:
+    """Un jugador comprometido con el camino contrario (ver
+    game/state.py:resumen_camino) deja de ver los sidequests del otro lado.
+    El camino ambivalente (el del medio) siempre ve los dos: es el único que
+    surfea ambos lados de la coyuntura."""
+    camino_actual = resumen_camino(estado.alineacion)
+    if requiere_camino == "bueno" and camino_actual == "fuera de la ley":
+        return False
+    if requiere_camino == "malo" and camino_actual == "dentro de la ley":
+        return False
+    return True
+
+
 def _opciones_disponibles(estado: EstadoJugador, nodo) -> List[int]:
     """Índices reales de las opciones que el jugador PUEDE elegir ahora mismo
     (según requiere_flag/requiere_item/excluye_flag), no todas las definidas
@@ -144,6 +164,8 @@ def _opciones_disponibles(estado: EstadoJugador, nodo) -> List[int]:
         if opcion.excluye_flag and estado.tiene_flag(opcion.excluye_flag):
             continue
         if opcion.requiere_salud_maxima is not None and estado.salud > opcion.requiere_salud_maxima:
+            continue
+        if opcion.requiere_camino and not _camino_permite(estado, opcion.requiere_camino):
             continue
         disponibles.append(i)
     return disponibles or list(range(len(nodo.opciones)))
@@ -400,6 +422,10 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
     if opcion.requiere_salud_maxima is not None and estado.salud > opcion.requiere_salud_maxima:
         vista = vista_actual(estado)
         vista["mensaje_error"] = "No lo necesitás por ahora."
+        return vista
+    if opcion.requiere_camino and not _camino_permite(estado, opcion.requiere_camino):
+        vista = vista_actual(estado)
+        vista["mensaje_error"] = "Ya no es algo que harías, con el camino que elegiste."
         return vista
 
     if opcion.salud_delta != (0, 0):

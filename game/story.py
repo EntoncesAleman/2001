@@ -47,6 +47,15 @@ class Opcion:
     # engine.py:elegir_final.
     establece_categoria: Optional[str] = None
 
+    # Marca esta opción como propia de un camino ("bueno" o "malo"): un
+    # jugador ya comprometido con el camino contrario (alineación <= -35 o
+    # >= 35, ver game/state.py:resumen_camino) deja de verla — así el camino
+    # bueno y el malo no ofrecen los mismos sidequests. El camino ambivalente
+    # (el del medio) sigue viendo ambos: es el único que "surfea" los dos
+    # lados. No confundir con alineacion_delta (el efecto de elegirla): esto
+    # es sobre si se OFRECE, no sobre qué hace.
+    requiere_camino: Optional[str] = None
+
     destino_alt: Optional[str] = None
     prob_alt: float = 0.0
 
@@ -245,7 +254,11 @@ _registrar(Nodo(
     ),
     opciones=(
         Opcion(texto="Ir para el banco a intentar sacar algo de guita", destino="banco_fila"),
-        Opcion(texto="Acercarte a la asamblea que se está armando en la placita", destino="asamblea_barrial"),
+        Opcion(
+            texto="Acercarte a la asamblea que se está armando en la placita",
+            destino="asamblea_barrial",
+            requiere_camino="bueno",
+        ),
         Opcion(texto="Ir al club de trueque a ver qué conseguís para comer", destino="club_trueque"),
         Opcion(texto="Pasar por el cibercafé a ver si hay noticias o mensajes", destino="cibercafe"),
         Opcion(texto="Ir hasta el piquete que cortó la ruta de acceso", destino="piquete"),
@@ -253,6 +266,7 @@ _registrar(Nodo(
             texto="Sumarte a cortar una ruta en otro barrio, con gente que no conocés de nada",
             destino="piquete_ruta_ajena",
             alineacion_delta=-6,
+            requiere_camino="malo",
         ),
         Opcion(texto="Agarrar tus cosas e intentar irte del Conurbano/CABA ahora mismo", destino="control_ruta"),
         Opcion(texto="Pasar por el comedor del barrio a ver si hay algo para comer", destino="comedor"),
@@ -579,6 +593,7 @@ _registrar(Nodo(
             texto="Preguntar bajito si alguien conoce a un reducidor para objetos... especiales",
             destino="camino_mercado_negro",
             alineacion_delta=-5,
+            requiere_camino="malo",
         ),
         Opcion(texto="Irte, esto no te resuelve nada hoy", destino="volver_al_hub"),
     ),
@@ -693,10 +708,12 @@ _registrar(Nodo(
         Opcion(
             texto="Sumarte a llevarte algo de comida, como todos",
             destino="saqueo_participar",
+            requiere_camino="malo",
         ),
         Opcion(
             texto="Ayudar al dueño a defender la puerta en vez de robar",
             destino="saqueo_ayudar_dueno",
+            requiere_camino="bueno",
         ),
         Opcion(
             texto="Buscar entre la gente si reconocés a la persona que estás buscando",
@@ -895,6 +912,7 @@ _registrar(Nodo(
             texto="Sumarte a un grupo que empieza a quemar gomas y armar una barricada",
             destino="piquetero_violento_1",
             alineacion_delta=-15,
+            requiere_camino="malo",
         ),
         Opcion(
             texto="Quedarte en el fondo de la plaza, mirando de lejos",
@@ -1047,7 +1065,7 @@ _registrar(Nodo(
     ),
     opciones=(
         Opcion(texto="Ir al club de trueque a ver qué conseguís", destino="club_trueque"),
-        Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial"),
+        Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial", requiere_camino="bueno"),
         Opcion(texto="Pasar por el comedor", destino="comedor"),
         Opcion(texto="Ir al hospital si lo necesitás", destino="hospital", requiere_salud_maxima=80),
         Opcion(texto="Pasar por el cibercafé", destino="cibercafe"),
@@ -1119,7 +1137,7 @@ _registrar(Nodo(
         Opcion(texto="Ir al club de trueque", destino="club_trueque"),
         Opcion(texto="Pasar por el comedor", destino="comedor"),
         Opcion(texto="Ir al hospital si lo necesitás", destino="hospital", requiere_salud_maxima=80),
-        Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial"),
+        Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial", requiere_camino="bueno"),
         Opcion(texto="Parar en el bar de la esquina un rato", destino="bar_de_la_esquina"),
     ),
     destino_libre="semana_presidentes_2",
