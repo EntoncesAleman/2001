@@ -12,7 +12,7 @@ import random
 from typing import Any, Dict, List, Optional
 
 from game import free_text, images, llm, story
-from game.state import Dinero, EstadoJugador, detectar_categoria_objetivo
+from game.state import Dinero, EstadoJugador, ZONA_INFO, detectar_categoria_objetivo, detectar_zona_gba
 
 # El primer nodo depende de qué objetivo eligió el jugador al crear el
 # personaje: la aventura puede *empezar* de formas distintas (así no hay una
@@ -49,7 +49,11 @@ HUB_POR_CAPITULO = {
 # la escena y avanzar al siguiente capítulo. Sin esto, alguien podría quedar
 # dando vueltas para siempre entre banco/asamblea/trueque sin avanzar nunca
 # la historia: esta opción garantiza que la partida siempre pueda progresar.
-TURNO_LIMITE_CANSANCIO = 8
+# Es la base "neutra"; el margen real de cada jugador varía según su zona
+# del GBA (ver _limite_cansancio) porque viajar desde el Oeste o desde
+# Zona Norte come mucho más día que moverse dentro de CABA.
+TURNO_LIMITE_CANSANCIO_BASE = 8
+TURNO_LIMITE_CANSANCIO_MINIMO = 5
 
 # Cuántos turnos puede quedar "colgado" el mandado de Doña Rosa (comedor)
 # antes de darlo por perdido: sin este límite, un jugador podría dejarlo
@@ -60,10 +64,31 @@ OPCION_TERMINAR_JORNADA = "Ya no das más por ahora: seguir adelante con el día
 # Eventos ambientales: viajar por el conurbano no es gratis. Cualquier vuelta
 # a la esquina del barrio (el hub principal del Capítulo 1) tiene una chance
 # chica de desviarte a un evento que no elegiste — un asalto, quedar en
-# medio de una manifestación. Nunca en el primerísimo turno ni dos veces
+# medio de una manifestación, o una demora de transporte con sabor a la zona
+# de la que sale el personaje (el Sarmiento, el Mitre, el Roca, o subte/
+# colectivo si es de CABA). Nunca en el primerísimo turno ni dos veces
 # seguidas (para no encadenar mala suerte sin parar).
-NODOS_EVENTO_AMBIENTAL = ("asalto_callejero", "atrapado_manifestacion")
+DEMORA_TRANSPORTE_POR_ZONA = {
+    "caba": "demora_transporte_caba",
+    "zona_norte": "demora_transporte_zona_norte",
+    "zona_oeste": "demora_transporte_zona_oeste",
+    "zona_sur": "demora_transporte_zona_sur",
+    "conurbano_generico": "demora_transporte_generico",
+}
+CATEGORIAS_EVENTO_AMBIENTAL = ("asalto_callejero", "atrapado_manifestacion", "demora_transporte")
+NODOS_EVENTO_AMBIENTAL = ("asalto_callejero", "atrapado_manifestacion") + tuple(
+    DEMORA_TRANSPORTE_POR_ZONA.values()
+)
 PROB_EVENTO_AMBIENTAL = 0.08
+
+
+def _limite_cansancio(estado: EstadoJugador) -> int:
+    """Cuántos turnos aguanta el día antes de que aparezca la opción de
+    cerrarlo, según la zona del GBA/CABA de la que sale el personaje (ver
+    game/state.py:ZONA_INFO). Vivir lejos y depender de un tren colapsado
+    (el Sarmiento, típicamente) come margen real del día."""
+    ajuste = ZONA_INFO.get(estado.zona_gba, ZONA_INFO["conurbano_generico"])["ajuste_cansancio"]
+    return max(TURNO_LIMITE_CANSANCIO_MINIMO, TURNO_LIMITE_CANSANCIO_BASE + ajuste)
 
 # Si la salud llega a 0 estando en uno de estos nodos, el final es
 # "final_muerte_manifestacion" (una bala perdida, gases, una topadora) en vez
@@ -93,7 +118,7 @@ def _opcion_extra_disponible(estado: EstadoJugador, nodo) -> bool:
     return (
         not nodo.es_final
         and nodo.destino_cansancio is not None
-        and estado.turno >= TURNO_LIMITE_CANSANCIO
+        and estado.turno >= _limite_cansancio(estado)
     )
 
 
@@ -153,6 +178,7 @@ def crear_estado(nombre: str, trasfondo: str, barrio: str, objetivo: str) -> Est
         objetivo=objetivo.strip() or "Sobrevivir al día de hoy",
         objetivo_categoria=categoria,
     )
+    estado.zona_gba = detectar_zona_gba(estado.barrio_inicial)
     estado.inventario = list(INVENTARIO_INICIAL)
     estado.dinero = Dinero(pesos=15, patacones=20, lecops=10)
     nodo_inicial = NODO_INICIAL_POR_CATEGORIA.get(categoria, "inicio_generico")
@@ -208,6 +234,15 @@ def _entrar_nodo(estado: EstadoJugador, nodo_id: str) -> None:
         nodo_id = elegir_final(estado)
     if nodo_id == "volver_al_hub":
         nodo_id = HUB_POR_CAPITULO.get(estado.capitulo, "esquina_barrio")
+    if nodo_id == "avanzar_capitulo":
+        # Sentinel reutilizable para sidequests que hacen "perder un día":
+        # salta directo al hub del capítulo siguiente. En los capítulos 1 y
+        # 2 (que comparten hub) esto no mueve de nodo — ahí el costo real de
+        # la sidequest son sus propios salud_delta/dinero_delta, no el
+        # salto — pero a partir del capítulo 3 cada capítulo tiene su propio
+        # hub y el salto sí es un adelanto real de la historia.
+        siguiente_capitulo = min(estado.capitulo + 1, 7)
+        nodo_id = HUB_POR_CAPITULO.get(siguiente_capitulo, "esquina_barrio")
 
     if (
         nodo_id in HUB_POR_CAPITULO.values()
@@ -215,7 +250,11 @@ def _entrar_nodo(estado: EstadoJugador, nodo_id: str) -> None:
         and estado.nodo_actual not in NODOS_EVENTO_AMBIENTAL
         and random.random() < PROB_EVENTO_AMBIENTAL
     ):
-        nodo_id = random.choice(NODOS_EVENTO_AMBIENTAL)
+        categoria = random.choice(CATEGORIAS_EVENTO_AMBIENTAL)
+        if categoria == "demora_transporte":
+            nodo_id = DEMORA_TRANSPORTE_POR_ZONA.get(estado.zona_gba, "demora_transporte_generico")
+        else:
+            nodo_id = categoria
 
     nodo = story.obtener_nodo(nodo_id)
     estado.nodo_actual = nodo_id

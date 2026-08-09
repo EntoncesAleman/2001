@@ -83,9 +83,10 @@ class Nodo:
     es_final: bool = False
     final_tipo: Optional[str] = None
     # Si está seteado, este nodo es un "hub" de capítulo: a partir de
-    # TURNO_LIMITE_CANSANCIO (game/engine.py) aparece una opción extra para
-    # cerrar la escena y avanzar directo a este destino, sin importar qué
-    # más haya para explorar acá. Nodos de paso (no-hub) lo dejan en None.
+    # _limite_cansancio() (game/engine.py, varía según la zona del GBA de la
+    # que sale el personaje) aparece una opción extra para cerrar la escena y
+    # avanzar directo a este destino, sin importar qué más haya para
+    # explorar acá. Nodos de paso (no-hub) lo dejan en None.
     destino_cansancio: Optional[str] = None
     # Capítulo de la campaña al que pertenece (1 = días previos, 2 = noche
     # del 19, 3 = el día del estallido, 4-6 = la semana de los presidentes,
@@ -2091,9 +2092,37 @@ _registrar(Nodo(
             destino_alt="asalto_callejero",
             prob_alt=0.2,
         ),
+        Opcion(
+            texto="Esperar en la esquina a que el pibe confirme que es seguro entrar",
+            destino="mercado_negro",
+            destino_alt="mercado_negro_tiempo_perdido",
+            prob_alt=0.7,
+            salud_delta=(-3, 1),
+        ),
         Opcion(texto="Arrepentirte y volver, esto es una locura", destino="volver_al_hub"),
     ),
     destino_libre="mercado_negro",
+))
+
+_registrar(Nodo(
+    id="mercado_negro_tiempo_perdido",
+    ubicacion="La misma esquina, mucho más tarde de lo planeado",
+    narracion=(
+        "El \"pibe\" nunca vuelve a confirmar nada. Esperás una hora, después "
+        "dos, hasta que se hace de noche cerrada y entendés que hoy no hay "
+        "reducidor que valga. Volver mañana con las manos vacías significa "
+        "perder el resto del día en otra cosa que no era lo que tenías "
+        "planeado."
+    ),
+    opciones=(
+        Opcion(
+            texto="Volver mañana y seguir con lo que quede del día",
+            destino="avanzar_capitulo",
+            salud_delta=(-5, -1),
+            alineacion_delta=-3,
+        ),
+    ),
+    destino_libre="avanzar_capitulo",
 ))
 
 _registrar(Nodo(
@@ -2224,6 +2253,138 @@ _registrar(Nodo(
             texto="Aprovechar y sumarte a los cánticos, ya que estás",
             destino="volver_al_hub",
             reputacion_delta=3,
+        ),
+    ),
+    destino_libre="volver_al_hub",
+))
+
+
+# ---------------------------------------------------------------------------
+# 17bis. Demoras de transporte — el "mapa mental" del GBA hecho evento
+# ---------------------------------------------------------------------------
+# Mismo mecanismo que asalto_callejero/atrapado_manifestacion (evento
+# ambiental al volver a un hub), pero acá la variante depende de la zona del
+# GBA/CABA de la que sale el personaje (game/engine.py:
+# DEMORA_TRANSPORTE_POR_ZONA) — el Sarmiento, el Mitre y el Roca eran, ya en
+# 2001, sinónimo de línea de tren específica con fama propia; en CABA el
+# problema es otro (subte/colectivo saturado), no un tren de larga distancia.
+
+_registrar(Nodo(
+    id="demora_transporte_caba",
+    ubicacion="Boca de subte, hora pico",
+    narracion=(
+        "La línea de subte que ibas a tomar para cuando llegás. \"Demorado por "
+        "inconvenientes técnicos\", dice el cartel de siempre, sin más detalle. "
+        "Arriba, en la calle, el colectivo que podría reemplazarlo pasa de largo "
+        "tres veces seguidas, repleto hasta la puerta."
+    ),
+    opciones=(
+        Opcion(
+            texto="Esperar a que se solucione, total no hay apuro que valga",
+            destino="volver_al_hub",
+            salud_delta=(-3, 1),
+        ),
+        Opcion(
+            texto="Ir caminando el resto, con este calor y todo",
+            destino="volver_al_hub",
+            salud_delta=(-8, -3),
+        ),
+    ),
+    destino_libre="volver_al_hub",
+))
+
+_registrar(Nodo(
+    id="demora_transporte_zona_norte",
+    ubicacion="Andén del Mitre, esperando que salga algo",
+    narracion=(
+        "El tren Mitre acumula ya una hora larga de demora por un problema de "
+        "señales en Retiro, según dice un guarda que tampoco parece muy seguro. "
+        "El andén se va llenando de gente que mira el reloj y putea bajito, "
+        "todos con el mismo problema que vos."
+    ),
+    opciones=(
+        Opcion(
+            texto="Aguantar en el andén hasta que salga el tren",
+            destino="volver_al_hub",
+            salud_delta=(-5, 0),
+        ),
+        Opcion(
+            texto="Buscar un colectivo que haga el mismo recorrido, más lento pero seguro",
+            destino="volver_al_hub",
+            salud_delta=(-8, -2),
+        ),
+    ),
+    destino_libre="volver_al_hub",
+))
+
+_registrar(Nodo(
+    id="demora_transporte_zona_oeste",
+    ubicacion="Andén del Sarmiento, altura Ramos Mejía",
+    narracion=(
+        "El Sarmiento está parado a la altura de Ramos Mejía, dicen que por una "
+        "protesta sobre las vías más adelante. No es la primera vez esta semana, "
+        "y todo el mundo en el andén lo sabe: alguien ya sacó un mate para "
+        "aguantar la espera con algo de dignidad."
+    ),
+    opciones=(
+        Opcion(
+            texto="Aguantar en el andén hasta que se destranque",
+            destino="volver_al_hub",
+            salud_delta=(-6, 0),
+        ),
+        Opcion(
+            texto="Cruzar a buscar un colectivo, aunque te deje lejos de donde ibas",
+            destino="volver_al_hub",
+            salud_delta=(-10, -3),
+        ),
+    ),
+    destino_libre="volver_al_hub",
+))
+
+_registrar(Nodo(
+    id="demora_transporte_zona_sur",
+    ubicacion="Andén del Roca, mirando las vías vacías",
+    narracion=(
+        "El Roca vuelve a acumular demoras homéricas: hablan de un choque más "
+        "adelante en las vías, o de un problema eléctrico, según a quién le "
+        "preguntes. Las vías están vacías a pérdida de vista, sin un solo tren "
+        "asomando."
+    ),
+    opciones=(
+        Opcion(
+            texto="Esperar en el andén, no queda otra",
+            destino="volver_al_hub",
+            salud_delta=(-5, 0),
+        ),
+        Opcion(
+            texto="Rebuscártela con un colectivo o un remis compartido",
+            destino="volver_al_hub",
+            salud_delta=(-8, -2),
+            dinero_delta={"pesos": -5},
+        ),
+    ),
+    destino_libre="volver_al_hub",
+))
+
+_registrar(Nodo(
+    id="demora_transporte_generico",
+    ubicacion="Parada de colectivo, esperando hace rato",
+    narracion=(
+        "El colectivo que estás esperando no aparece hace más de cuarenta "
+        "minutos: puede ser el paro de otra línea, puede ser un corte más allá, "
+        "puede ser directamente que no viene. En la parada ya se juntó un grupo "
+        "grande esperando lo mismo que vos."
+    ),
+    opciones=(
+        Opcion(
+            texto="Seguir esperando, no hay mucha otra opción",
+            destino="volver_al_hub",
+            salud_delta=(-5, 0),
+        ),
+        Opcion(
+            texto="Empezar a caminar, aunque te quede lejos",
+            destino="volver_al_hub",
+            salud_delta=(-8, -3),
         ),
     ),
     destino_libre="volver_al_hub",

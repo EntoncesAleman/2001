@@ -111,6 +111,71 @@ def detectar_categoria_objetivo(texto: str) -> str:
     return "generico"
 
 
+# "Mapa mental" del Gran Buenos Aires y CABA: de qué barrio sale el
+# personaje determina qué tren/transporte usa y cuánto le come el día viajar
+# — no es solo color, ver ZONA_INFO y game/engine.py (_limite_cansancio,
+# DEMORA_TRANSPORTE_POR_ZONA). El orden importa por el mismo motivo que
+# CATEGORIAS_OBJETIVO: lo más específico primero.
+ZONAS_GBA = (
+    (
+        "caba",
+        (
+            "caba", "capital federal", "microcentro", "recoleta", "palermo", "once",
+            "flores", "almagro", "boedo", "caballito", "belgrano", "villa urquiza",
+            "constitucion", "constitución", "retiro", "la boca", "barracas",
+            "mataderos", "liniers", "nuñez", "núñez", "chacarita", "colegiales",
+        ),
+    ),
+    (
+        "zona_norte",
+        (
+            "tigre", "san isidro", "vicente lopez", "vicente lópez", "san fernando",
+            "olivos", "martinez", "martínez", "pilar", "escobar", "san miguel",
+            "jose c paz", "josé c paz", "malvinas argentinas", "boulogne",
+        ),
+    ),
+    (
+        "zona_oeste",
+        (
+            "la matanza", "moron", "morón", "hurlingham", "ituzaingo", "ituzaingó",
+            "merlo", "moreno", "general rodriguez", "general rodríguez", "san justo",
+            "ramos mejia", "ramos mejía", "castelar", "haedo", "gregorio de laferrere",
+            "ciudad evita", "isidro casanova",
+        ),
+    ),
+    (
+        "zona_sur",
+        (
+            "lomas de zamora", "avellaneda", "quilmes", "lanus", "lanús",
+            "berazategui", "florencio varela", "almirante brown", "ezeiza",
+            "esteban echeverria", "esteban echeverría", "banfield", "temperley",
+            "adrogue", "adrogué", "wilde", "sarandi", "sarandí",
+        ),
+    ),
+)
+
+# Info real de transporte de cada zona: qué tren la conecta con CABA (o si se
+# mueve en subte/colectivo, como en CABA misma) y cuánto le resta al margen
+# del día viajar desde ahí (ver engine.py:_limite_cansancio). El Sarmiento
+# era, ya en 2001, el ejemplo de tren colapsado/impredecible del Oeste — por
+# eso zona_oeste tiene el ajuste más negativo.
+ZONA_INFO: Dict[str, Dict[str, Any]] = {
+    "caba": {"transporte": "colectivo y subte", "ajuste_cansancio": 2},
+    "zona_norte": {"transporte": "el tren Mitre", "ajuste_cansancio": -1},
+    "zona_oeste": {"transporte": "el tren Sarmiento", "ajuste_cansancio": -2},
+    "zona_sur": {"transporte": "el tren Roca", "ajuste_cansancio": -1},
+    "conurbano_generico": {"transporte": "colectivo", "ajuste_cansancio": 0},
+}
+
+
+def detectar_zona_gba(texto: str) -> str:
+    texto_bajo = texto.lower()
+    for zona, palabras_clave in ZONAS_GBA:
+        if any(palabra in texto_bajo for palabra in palabras_clave):
+            return zona
+    return "conurbano_generico"
+
+
 @dataclass
 class EstadoJugador:
     nombre: str
@@ -118,6 +183,11 @@ class EstadoJugador:
     barrio_inicial: str
     objetivo: str
     objetivo_categoria: str = "generico"
+    # Zona del Gran Buenos Aires/CABA de la que sale el personaje, detectada
+    # de barrio_inicial (ver detectar_zona_gba arriba). Afecta cuánto le
+    # rinde el día (game/engine.py:_limite_cansancio) y qué evento de demora
+    # de transporte le puede tocar (DEMORA_TRANSPORTE_POR_ZONA).
+    zona_gba: str = "conurbano_generico"
 
     nodo_actual: str = "esquina_barrio"
     ubicacion: str = ""
@@ -249,6 +319,7 @@ class EstadoJugador:
             "barrio_inicial": self.barrio_inicial,
             "objetivo": self.objetivo,
             "objetivo_categoria": self.objetivo_categoria,
+            "zona_gba": self.zona_gba,
             "nodo_actual": self.nodo_actual,
             "ubicacion": self.ubicacion,
             "salud": self.salud,
@@ -283,6 +354,7 @@ class EstadoJugador:
             objetivo=datos["objetivo"],
             objetivo_categoria=datos.get("objetivo_categoria", "generico"),
         )
+        estado.zona_gba = datos.get("zona_gba", "conurbano_generico")
         estado.nodo_actual = datos.get("nodo_actual", "esquina_barrio")
         estado.ubicacion = datos.get("ubicacion", "")
         estado.salud = datos.get("salud", 100)
