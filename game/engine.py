@@ -27,6 +27,14 @@ INVENTARIO_INICIAL = ("libreta con anotaciones", "documento de identidad")
 TURNO_LIMITE_CANSANCIO = 10
 OPCION_TERMINAR_JORNADA = "Ya no das más por hoy: volver a tu casa a terminar la jornada"
 
+# Eventos ambientales: viajar por el conurbano no es gratis. Cualquier vuelta
+# a la esquina del barrio (el hub principal) tiene una chance chica de
+# desviarte a un evento que no elegiste — un asalto, quedar en medio de una
+# manifestación. Nunca en el primerísimo turno (recién arrancás la partida)
+# ni dos veces seguidas (para no encadenar mala suerte sin parar).
+NODOS_EVENTO_AMBIENTAL = ("asalto_callejero", "atrapado_manifestacion")
+PROB_EVENTO_AMBIENTAL = 0.08
+
 
 def _opcion_extra_disponible(estado: EstadoJugador, nodo) -> bool:
     return (
@@ -73,6 +81,14 @@ def elegir_final(estado: EstadoJugador) -> str:
 def _entrar_nodo(estado: EstadoJugador, nodo_id: str) -> None:
     if nodo_id == "final_decision":
         nodo_id = elegir_final(estado)
+
+    if (
+        nodo_id == "esquina_barrio"
+        and estado.turno > 0
+        and estado.nodo_actual not in NODOS_EVENTO_AMBIENTAL
+        and random.random() < PROB_EVENTO_AMBIENTAL
+    ):
+        nodo_id = random.choice(NODOS_EVENTO_AMBIENTAL)
 
     nodo = story.obtener_nodo(nodo_id)
     estado.nodo_actual = nodo_id

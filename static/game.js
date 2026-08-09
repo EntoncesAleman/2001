@@ -2,6 +2,88 @@
 // directa del DOM. Todo el estado real vive en el servidor (sesión Flask);
 // acá solo pintamos lo que /api/* devuelve.
 
+// --- Tipeo estilo "máquina de escribir" (tipo Carmen Sandiego) ----------
+// El clic no es un sample de audio: es un blip sintetizado con Web Audio
+// API (oscilador + envolvente corta), así no depende de ningún archivo ni
+// de derechos de autor de ningún sonido real.
+
+const VELOCIDAD_TIPEO_MS = 16;
+let audioCtxTipeo = null;
+let tipeoEnCurso = null;
+
+function obtenerAudioCtxTipeo() {
+  if (!audioCtxTipeo) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtxTipeo = new Ctx();
+  }
+  return audioCtxTipeo;
+}
+
+function reproducirClicTipeo() {
+  try {
+    const ctx = obtenerAudioCtxTipeo();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = 650 + Math.random() * 350;
+    gain.gain.setValueAtTime(0.05, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.02);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.03);
+  } catch (err) {
+    // Sin Web Audio disponible: sigue andando todo, simplemente sin clic.
+  }
+}
+
+// Tipea `texto` dentro de `elemento` caracter por caracter. Clickear el
+// elemento mientras tipea lo completa al instante (para no obligar a nadie
+// a esperar). Cancela cualquier tipeo anterior todavía en curso.
+function tipearTexto(elemento, texto) {
+  if (tipeoEnCurso) {
+    tipeoEnCurso.cancelado = true;
+  }
+  const esteTipeo = { cancelado: false };
+  tipeoEnCurso = esteTipeo;
+
+  elemento.textContent = "";
+  elemento.classList.add("tipeable");
+
+  return new Promise((resolve) => {
+    function terminar(textoFinal) {
+      elemento.removeEventListener("click", completarInstantaneo);
+      if (tipeoEnCurso === esteTipeo) tipeoEnCurso = null;
+      elemento.textContent = textoFinal;
+      resolve();
+    }
+
+    function completarInstantaneo() {
+      if (esteTipeo.cancelado) return;
+      esteTipeo.cancelado = true;
+      terminar(texto);
+    }
+
+    elemento.addEventListener("click", completarInstantaneo);
+
+    let i = 0;
+    function paso() {
+      if (esteTipeo.cancelado) return;
+      if (i >= texto.length) {
+        terminar(texto);
+        return;
+      }
+      elemento.textContent += texto[i];
+      if (texto[i].trim() !== "") reproducirClicTipeo();
+      i += 1;
+      setTimeout(paso, VELOCIDAD_TIPEO_MS);
+    }
+    paso();
+  });
+}
+
 const pantallaIntro = document.getElementById("pantalla-intro");
 const introCapaCalle = document.getElementById("intro-capa-calle");
 const introCapaExplosion = document.getElementById("intro-capa-explosion");
@@ -11,10 +93,17 @@ const btnSaltarIntro = document.getElementById("btn-saltar-intro");
 const introMusica = document.getElementById("intro-musica");
 const btnActivarSonido = document.getElementById("btn-activar-sonido");
 
+const pantallaModo = document.getElementById("pantalla-modo");
+const btnModoHistoria = document.getElementById("btn-modo-historia");
+const btnModoLibre = document.getElementById("btn-modo-libre");
+const modoLibreNoDisponible = document.getElementById("modo-libre-no-disponible");
+
 const pantallaAlta = document.getElementById("pantalla-alta");
 const pantallaJuego = document.getElementById("pantalla-juego");
 const formAlta = document.getElementById("form-alta");
 const errorAlta = document.getElementById("error-alta");
+
+let modoElegido = "historia";
 
 const imagenEscena = document.getElementById("imagen-escena");
 const narracionEl = document.getElementById("narracion");
@@ -36,7 +125,7 @@ const ETIQUETAS_FINAL = {
   objetivo_cumplido: "🏁 FIN — CUMPLISTE TU OBJETIVO",
   comunidad: "🤝 FIN — SALISTE ADELANTE CON EL BARRIO",
   solitario: "🚪 FIN — SOBREVIVISTE, SOLO",
-  preso: "🚔 FIN — TERMINASTE PRESO",
+  condenado: "🚔 FIN — TE DICTARON LA PRISIÓN PREVENTIVA",
   represion_derrota: "🪧 FIN — REPRIMIERON EL PIQUETE",
   presidente: "🎖️  FIN — TERMINASTE SIENDO PRESIDENTE",
 };
@@ -61,14 +150,46 @@ async function apiGet(url) {
 }
 
 function mostrarPantallaJuego() {
+  pantallaModo.hidden = true;
   pantallaAlta.hidden = true;
   pantallaJuego.hidden = false;
 }
 
 function mostrarPantallaAlta() {
+  pantallaModo.hidden = true;
   pantallaJuego.hidden = true;
   pantallaAlta.hidden = false;
 }
+
+async function mostrarPantallaModo() {
+  pantallaJuego.hidden = true;
+  pantallaAlta.hidden = true;
+  pantallaModo.hidden = false;
+
+  btnModoLibre.disabled = true;
+  modoLibreNoDisponible.hidden = true;
+  try {
+    const datos = await apiGet("/api/modo_disponible");
+    if (datos.libre_disponible) {
+      btnModoLibre.disabled = false;
+    } else {
+      modoLibreNoDisponible.hidden = false;
+    }
+  } catch (err) {
+    modoLibreNoDisponible.hidden = false;
+  }
+}
+
+btnModoHistoria.addEventListener("click", () => {
+  modoElegido = "historia";
+  mostrarPantallaAlta();
+});
+
+btnModoLibre.addEventListener("click", () => {
+  if (btnModoLibre.disabled) return;
+  modoElegido = "libre";
+  mostrarPantallaAlta();
+});
 
 // --- Cutscene de apertura ---------------------------------------------
 // Tiene que coincidir con var(--duracion-intro) de static/style.css.
@@ -116,7 +237,7 @@ function finalizarIntro() {
   sessionStorage.setItem("introVista", "1");
   pantallaIntro.classList.remove("intro-reproduciendo");
   pantallaIntro.hidden = true;
-  mostrarPantallaAlta();
+  mostrarPantallaModo();
 }
 
 function precargarImagen(url) {
@@ -164,7 +285,7 @@ function esperarConTimeout(promesa, ms) {
 async function reproducirIntro() {
   if (sessionStorage.getItem("introVista") === "1" || prefiereMovimientoReducido()) {
     pantallaIntro.hidden = true;
-    mostrarPantallaAlta();
+    mostrarPantallaModo();
     return;
   }
 
@@ -176,7 +297,7 @@ async function reproducirIntro() {
     frames = await apiGet("/api/intro");
   } catch (err) {
     pantallaIntro.hidden = true;
-    mostrarPantallaAlta();
+    mostrarPantallaModo();
     return;
   }
 
@@ -191,7 +312,7 @@ async function reproducirIntro() {
   } catch (err) {
     pantallaIntro.hidden = true;
     introCargando.hidden = true;
-    mostrarPantallaAlta();
+    mostrarPantallaModo();
     return;
   }
 
@@ -221,7 +342,7 @@ function renderVista(vista) {
     imagenEscena.removeAttribute("src");
   }
 
-  narracionEl.textContent = vista.narracion;
+  tipearTexto(narracionEl, vista.narracion || "");
 
   dialogosEl.innerHTML = "";
   (vista.dialogos || []).forEach(([personaje, texto]) => {
@@ -302,6 +423,7 @@ formAlta.addEventListener("submit", async (evento) => {
   errorAlta.hidden = true;
   const datos = new FormData(formAlta);
   const cuerpo = {
+    modo: modoElegido,
     nombre: datos.get("nombre"),
     trasfondo: datos.get("trasfondo"),
     barrio: datos.get("barrio"),
@@ -324,17 +446,26 @@ formLibre.addEventListener("submit", (evento) => {
   enviarAccionLibre(texto);
 });
 
-btnJugarDeNuevo.addEventListener("click", async () => {
-  await apiPost("/api/reiniciar", {});
-  formAlta.reset();
-  mostrarPantallaAlta();
-});
+// "Nueva partida" es un reset total, como en cualquier videojuego: se borra
+// el estado del servidor y todo lo guardado en esta pestaña (incluido que
+// ya viste la intro), y se recarga la página para volver literalmente a la
+// pantalla de arranque con la cutscene animada.
+async function reiniciarPartidaCompleta() {
+  try {
+    await apiPost("/api/reiniciar", {});
+  } catch (err) {
+    // Si falla el POST igual recargamos: la sesión vieja va a quedar
+    // colgada en el servidor, pero el jugador no se queda trabado acá.
+  }
+  sessionStorage.clear();
+  window.location.reload();
+}
 
-btnReiniciar.addEventListener("click", async () => {
+btnJugarDeNuevo.addEventListener("click", reiniciarPartidaCompleta);
+
+btnReiniciar.addEventListener("click", () => {
   if (!confirm("¿Seguro que querés abandonar esta partida y empezar de nuevo?")) return;
-  await apiPost("/api/reiniciar", {});
-  formAlta.reset();
-  mostrarPantallaAlta();
+  reiniciarPartidaCompleta();
 });
 
 // Al cargar la página: si ya había una partida en curso en esta sesión (por

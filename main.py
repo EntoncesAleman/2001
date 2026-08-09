@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from typing import Optional
 
 from rich.console import Console
@@ -18,7 +19,7 @@ from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.text import Text
 
-from game import engine
+from game import engine, llm, modo_libre
 from game.state import EstadoJugador
 
 console = Console()
@@ -64,8 +65,20 @@ def mostrar_imagen(url: Optional[str]) -> None:
     console.print()
 
 
+VELOCIDAD_TIPEO_SEGUNDOS = 0.012
+
+
 def mostrar_narracion(narracion: str) -> None:
-    console.print(narracion, style="white")
+    # Efecto "máquina de escribir" (tipo Carmen Sandiego): si la salida no es
+    # una terminal real (pipe, redirección, tests) tipear caracter por
+    # caracter no tiene sentido, así que ahí se imprime todo de una.
+    if console.is_terminal:
+        for caracter in narracion:
+            console.print(caracter, style="white", end="")
+            time.sleep(VELOCIDAD_TIPEO_SEGUNDOS)
+        console.print()
+    else:
+        console.print(narracion, style="white")
     console.print()
 
 
@@ -117,7 +130,7 @@ def mostrar_vista(vista: dict) -> None:
             "objetivo_cumplido": "🏁 FIN — CUMPLISTE TU OBJETIVO",
             "comunidad": "🤝 FIN — SALISTE ADELANTE CON EL BARRIO",
             "solitario": "🚪 FIN — SOBREVIVISTE, SOLO",
-            "preso": "🚔 FIN — TERMINASTE PRESO",
+            "condenado": "🚔 FIN — TE DICTARON LA PRISIÓN PREVENTIVA",
             "represion_derrota": "🪧 FIN — REPRIMIERON EL PIQUETE",
             "presidente": "🎖️  FIN — TERMINASTE SIENDO PRESIDENTE",
         }
@@ -128,10 +141,53 @@ def mostrar_vista(vista: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Alta de personaje (paso inicial)
+# Motor: en modo "historia" es game/engine.py, en modo "libre" es
+# game/modo_libre.py. Estas funciones son el único lugar de main.py que
+# necesita saber cuál de los dos corresponde.
 # ---------------------------------------------------------------------------
 
-def alta_de_personaje() -> EstadoJugador:
+def _motor_de(estado: EstadoJugador):
+    return modo_libre if estado.modo == "libre" else engine
+
+
+def vista_actual_de(estado: EstadoJugador) -> dict:
+    motor = _motor_de(estado)
+    return motor.vista_actual_libre(estado) if estado.modo == "libre" else motor.vista_actual(estado)
+
+
+def elegir_opcion_de(estado: EstadoJugador, indice: int) -> dict:
+    motor = _motor_de(estado)
+    return motor.elegir_opcion_libre(estado, indice) if estado.modo == "libre" else motor.elegir_opcion(estado, indice)
+
+
+def accion_libre_de(estado: EstadoJugador, texto: str) -> dict:
+    motor = _motor_de(estado)
+    return motor.accion_libre_libre(estado, texto) if estado.modo == "libre" else motor.accion_libre(estado, texto)
+
+
+# ---------------------------------------------------------------------------
+# Selección de modo + alta de personaje (paso inicial)
+# ---------------------------------------------------------------------------
+
+def elegir_modo() -> str:
+    libre_disponible = llm.modelo_configurado()
+    console.print(
+        Panel(
+            "[bold]MODO HISTORIA[/bold] — ramificaciones ya escritas, la misma para todos, "
+            "funciona sin ninguna IA.\n"
+            "[bold]MODO LIBRE (IA)[/bold] — improvisado turno a turno por un modelo de IA, "
+            "nunca se repite igual."
+            + ("" if libre_disponible else "\n[dim](no disponible: no hay API key configurada)[/dim]"),
+            title="¿Cómo querés jugar?",
+            border_style="blue",
+        )
+    )
+    if not libre_disponible:
+        return "historia"
+    return Prompt.ask("Elegí un modo", choices=["historia", "libre"], default="historia")
+
+
+def alta_de_personaje(modo: str = "historia") -> EstadoJugador:
     console.print(
         "Antes de arrancar necesito algunos datos tuyos. En cualquier pregunta podés "
         "escribir lo que quieras, no hace falta que sea una de las sugerencias.\n",
@@ -158,8 +214,18 @@ def alta_de_personaje() -> EstadoJugador:
     objetivo = Prompt.ask("[bold]¿Cuál es tu objetivo principal?[/bold]")
 
     console.print()
-    estado = engine.crear_estado(nombre, trasfondo, barrio, objetivo)
-    return estado
+
+    if modo == "libre":
+        estado = modo_libre.iniciar_partida_libre(nombre, trasfondo, barrio, objetivo)
+        if estado is None:
+            console.print(
+                "[red]No se pudo arrancar el modo libre (sin API key configurada, o falló la "
+                "primera llamada). Arrancamos en modo historia.[/red]\n"
+            )
+            estado = engine.crear_estado(nombre, trasfondo, barrio, objetivo)
+        return estado
+
+    return engine.crear_estado(nombre, trasfondo, barrio, objetivo)
 
 
 # ---------------------------------------------------------------------------
@@ -167,9 +233,11 @@ def alta_de_personaje() -> EstadoJugador:
 # ---------------------------------------------------------------------------
 
 def guardar_partida(estado: EstadoJugador, archivo: str = ARCHIVO_PARTIDA_DEFAULT) -> None:
+    # to_dict/from_dict son iguales en los dos motores (incluyen los campos
+    # de ambos modos), así que guardar/cargar no necesita saber qué modo es.
     os.makedirs(os.path.dirname(archivo), exist_ok=True)
     with open(archivo, "w", encoding="utf-8") as f:
-        json.dump(engine.guardar_estado(estado), f, ensure_ascii=False, indent=2)
+        json.dump(estado.to_dict(), f, ensure_ascii=False, indent=2)
     console.print(f"[green]Partida guardada en {archivo}[/green]\n")
 
 
@@ -178,7 +246,7 @@ def cargar_partida(archivo: str = ARCHIVO_PARTIDA_DEFAULT) -> Optional[EstadoJug
         return None
     with open(archivo, "r", encoding="utf-8") as f:
         datos = json.load(f)
-    return engine.cargar_estado(datos)
+    return EstadoJugador.from_dict(datos)
 
 
 def preguntar_continuar_partida_guardada() -> Optional[EstadoJugador]:
@@ -216,20 +284,20 @@ def pedir_accion(cantidad_opciones: int) -> str:
 def procesar_turno(estado: EstadoJugador, entrada: str) -> dict:
     if entrada.isdigit():
         numero = int(entrada)
-        nodo_opciones = len(engine.vista_actual(estado)["opciones"])
+        nodo_opciones = len(vista_actual_de(estado)["opciones"])
         if 1 <= numero <= nodo_opciones:
-            return engine.elegir_opcion(estado, numero)
+            return elegir_opcion_de(estado, numero)
         return {
             "mensaje_error": (
                 "Ese número no corresponde a ninguna opción de la lista. "
                 "Elegí uno de los listados o escribí directamente tu acción."
             )
         }
-    return engine.accion_libre(estado, entrada)
+    return accion_libre_de(estado, entrada)
 
 
 def loop_juego(estado: EstadoJugador) -> None:
-    vista = engine.vista_actual(estado)
+    vista = vista_actual_de(estado)
     mostrar_vista(vista)
 
     while True:
@@ -237,8 +305,9 @@ def loop_juego(estado: EstadoJugador) -> None:
             console.print("\n[bold]¿Querés jugar otra partida? (si/no)[/bold]")
             de_nuevo = Prompt.ask("", choices=["si", "no"], default="no")
             if de_nuevo == "si":
-                estado = alta_de_personaje()
-                vista = engine.vista_actual(estado)
+                modo = elegir_modo()
+                estado = alta_de_personaje(modo)
+                vista = vista_actual_de(estado)
                 mostrar_vista(vista)
                 continue
             console.print("\n[bold cyan]Gracias por jugar. Suerte ahí afuera, che.[/bold cyan]\n")
@@ -269,7 +338,7 @@ def loop_juego(estado: EstadoJugador) -> None:
             if not texto_libre:
                 console.print("[red]No escribiste nada.[/red]\n")
                 continue
-            vista = engine.accion_libre(estado, texto_libre)
+            vista = accion_libre_de(estado, texto_libre)
             console.print()
             mostrar_vista(vista)
             continue
@@ -277,7 +346,7 @@ def loop_juego(estado: EstadoJugador) -> None:
         vista = procesar_turno(estado, entrada)
         if vista.get("mensaje_error"):
             console.print(f"[red]{vista['mensaje_error']}[/red]\n")
-            vista = engine.vista_actual(estado)
+            vista = vista_actual_de(estado)
             continue
 
         console.print()
@@ -289,7 +358,8 @@ def main() -> None:
 
     estado = preguntar_continuar_partida_guardada()
     if estado is None:
-        estado = alta_de_personaje()
+        modo = elegir_modo()
+        estado = alta_de_personaje(modo)
 
     try:
         loop_juego(estado)

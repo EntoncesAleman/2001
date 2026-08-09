@@ -92,6 +92,55 @@ html, body {
   gap: 1rem;
 }
 
+.opciones-modo {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.tarjeta-modo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: flex-start;
+  text-align: left;
+  padding: 1rem 1.1rem;
+  background: #0a1836;
+  border: 2px solid var(--azul-borde);
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--fuente-texto);
+}
+
+.tarjeta-modo strong {
+  font-family: var(--fuente-titulo);
+  font-size: 0.85rem;
+  color: var(--amarillo);
+  letter-spacing: 0.05em;
+}
+
+.tarjeta-modo span {
+  font-size: 1.1rem;
+  color: var(--blanco-pixel);
+  line-height: 1.4;
+}
+
+.tarjeta-modo:hover {
+  background: #16305f;
+  border-color: var(--verde);
+}
+
+.tarjeta-modo:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tarjeta-modo:disabled:hover {
+  background: #0a1836;
+  border-color: var(--azul-borde);
+}
+
 #form-alta label, #form-libre label {
   display: flex;
   flex-direction: column;
@@ -160,6 +209,10 @@ button:active {
   color: var(--blanco-pixel);
   margin-bottom: 0.8rem;
   white-space: pre-line;
+}
+
+.tipeable {
+  cursor: pointer;
 }
 
 .dialogos p {

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import Any
 
 from flask import Flask, jsonify, render_template, request, session
 
@@ -21,7 +22,7 @@ from flask import Flask, jsonify, render_template, request, session
 # script suelto (`python3 api/index.py`) sin duplicar el paquete `game`.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from game import engine, images  # noqa: E402
+from game import engine, images, llm, modo_libre  # noqa: E402
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -34,21 +35,37 @@ app = Flask(
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-cambiar-en-produccion-2001")
 
 
+# El estado guardado en sesión trae su propio campo "modo" ("historia" o
+# "libre"): estas funciones son el único lugar que necesita saber a cuál de
+# los dos motores (game/engine.py o game/modo_libre.py) hay que llamar.
+def _motor_de(estado) -> Any:
+    return modo_libre if estado.modo == "libre" else engine
+
+
 def _vista_desde_sesion():
     datos_estado = session.get("estado")
     if not datos_estado:
         return None, None
-    estado = engine.cargar_estado(datos_estado)
-    return estado, engine.vista_actual(estado)
+    modo = datos_estado.get("modo", "historia")
+    motor = modo_libre if modo == "libre" else engine
+    estado = motor.cargar_estado(datos_estado)
+    vista = motor.vista_actual_libre(estado) if modo == "libre" else motor.vista_actual(estado)
+    return estado, vista
 
 
 def _guardar_estado_en_sesion(estado) -> None:
-    session["estado"] = engine.guardar_estado(estado)
+    motor = _motor_de(estado)
+    session["estado"] = motor.guardar_estado(estado)
 
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/api/modo_disponible")
+def api_modo_disponible():
+    return jsonify({"libre_disponible": llm.modelo_configurado()})
 
 
 # Fotogramas fijos de la cutscene de apertura (estilo "intro de recreativo",
@@ -95,6 +112,7 @@ def api_estado():
 @app.route("/api/nueva_partida", methods=["POST"])
 def api_nueva_partida():
     body = request.get_json(silent=True) or {}
+    modo = str(body.get("modo", "historia")).strip().lower()
     nombre = str(body.get("nombre", ""))[:80]
     trasfondo = str(body.get("trasfondo", ""))[:200]
     barrio = str(body.get("barrio", ""))[:120]
@@ -102,6 +120,19 @@ def api_nueva_partida():
 
     if not nombre.strip() or not trasfondo.strip() or not barrio.strip() or not objetivo.strip():
         return jsonify({"error": "Completá los cuatro datos para arrancar la partida."}), 400
+
+    if modo == "libre":
+        estado = modo_libre.iniciar_partida_libre(nombre, trasfondo, barrio, objetivo)
+        if estado is None:
+            return jsonify({
+                "error": (
+                    "El modo libre necesita una API key de Gemini o Anthropic configurada "
+                    "en el servidor y no encontré ninguna (o falló la primera llamada). "
+                    "Probá el modo historia mientras tanto."
+                )
+            }), 400
+        _guardar_estado_en_sesion(estado)
+        return jsonify({"vista": modo_libre.vista_actual_libre(estado)})
 
     estado = engine.crear_estado(nombre, trasfondo, barrio, objetivo)
     _guardar_estado_en_sesion(estado)
@@ -114,6 +145,7 @@ def api_accion():
     if estado is None:
         return jsonify({"error": "No hay una partida en curso. Empezá una nueva."}), 400
 
+    motor = _motor_de(estado)
     body = request.get_json(silent=True) or {}
     tipo = body.get("tipo")
     valor = body.get("valor", "")
@@ -123,9 +155,9 @@ def api_accion():
             indice = int(valor)
         except (TypeError, ValueError):
             return jsonify({"error": "Opción inválida."}), 400
-        vista = engine.elegir_opcion(estado, indice)
+        vista = motor.elegir_opcion_libre(estado, indice) if estado.modo == "libre" else motor.elegir_opcion(estado, indice)
     elif tipo == "libre":
-        vista = engine.accion_libre(estado, str(valor))
+        vista = motor.accion_libre_libre(estado, str(valor)) if estado.modo == "libre" else motor.accion_libre(estado, str(valor))
     else:
         return jsonify({"error": "Tipo de acción inválido."}), 400
 

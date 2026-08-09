@@ -43,6 +43,27 @@
         </audio>
       </section>
 
+      <!-- Selección de modo -->
+      <section id="pantalla-modo" class="panel-juego" hidden>
+        <p class="intro-texto">
+          ¿Cómo querés jugar?
+        </p>
+        <div class="opciones-modo">
+          <button type="button" id="btn-modo-historia" class="tarjeta-modo">
+            <strong>MODO HISTORIA</strong>
+            <span>Una historia con ramificaciones ya escritas, la misma para todos. Funciona sin conexión a ninguna IA.</span>
+          </button>
+          <button type="button" id="btn-modo-libre" class="tarjeta-modo">
+            <strong>MODO LIBRE (IA)</strong>
+            <span>Cada partida la improvisa un modelo de IA en el momento: nunca se repite igual.</span>
+          </button>
+        </div>
+        <p id="modo-libre-no-disponible" class="mensaje-error" hidden>
+          El modo libre necesita una API key de Gemini o Claude configurada en el servidor. Por
+          ahora solo está disponible el modo historia.
+        </p>
+      </section>
+
       <!-- Alta de personaje -->
       <section id="pantalla-alta" class="panel-juego" hidden>
         <p class="intro-texto">

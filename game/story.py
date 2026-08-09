@@ -92,6 +92,16 @@ _registrar(Nodo(
         Opcion(texto="Pasar por el cibercafé a ver si hay noticias o mensajes", destino="cibercafe"),
         Opcion(texto="Ir hasta el piquete que cortó la ruta de acceso", destino="piquete"),
         Opcion(texto="Agarrar tus cosas e intentar irte del Conurbano/CABA ahora mismo", destino="control_ruta"),
+        Opcion(texto="Pasar por el comedor del barrio a ver si hay algo para comer", destino="comedor"),
+        Opcion(texto="Ir hasta el hospital de guardia si te sentís mal", destino="hospital"),
+        Opcion(
+            texto="Comer algo de lo que tenés en la bolsa de mercadería",
+            destino="esquina_barrio",
+            requiere_item="bolsa de mercadería",
+            items_quitar=("bolsa de mercadería",),
+            salud_delta=(10, 20),
+            mensaje_efecto="No es gran cosa, pero algo en el estómago cambia todo.",
+        ),
     ),
     destino_libre="esquina_barrio",
 ))
@@ -376,6 +386,10 @@ _registrar(Nodo(
         Opcion(texto="Ofrecer algo de tu inventario a cambio de comida", destino="club_trueque_intercambio"),
         Opcion(texto="Quedarte charlando para enterarte de rumores del barrio", destino="club_trueque_intercambio",
                reputacion_delta=2),
+        Opcion(
+            texto="Preguntar bajito si alguien conoce a un reducidor para objetos... especiales",
+            destino="camino_mercado_negro",
+        ),
         Opcion(texto="Irte, esto no te resuelve nada hoy", destino="esquina_barrio"),
     ),
     destino_libre="club_trueque_intercambio",
@@ -421,6 +435,15 @@ _registrar(Nodo(
         Opcion(texto="Revisar si hay algún mail o mensaje de gente conocida", destino="cibercafe_noticia"),
         Opcion(texto="Quedarte mirando las noticias en la tele para saber qué está pasando", destino="cibercafe_noticia",
                reputacion_delta=1),
+        Opcion(
+            texto="Revisar entre las cosas viejas del local por si encontrás lo que te pidió la del comedor",
+            destino="cibercafe",
+            requiere_flag="mision_comedor_activa",
+            excluye_flag="encargo_encontrado",
+            flags_add=("encargo_encontrado",),
+            items_add=("encargo de Doña Rosa",),
+            mensaje_efecto="Detrás de una torre de CPUs rotas, encontrás justo lo que te habían pedido.",
+        ),
         Opcion(texto="Salir, esto no te sirve de mucho ahora", destino="esquina_barrio"),
     ),
     destino_libre="cibercafe_noticia",
@@ -486,6 +509,16 @@ _registrar(Nodo(
             requiere_flag="buscando_familiar",
             destino_alt="calle_noche",
         ),
+        Opcion(
+            texto="Revolver entre los estantes tirados por si encontrás lo que te pidió la del comedor",
+            destino="saqueo_supermercado",
+            requiere_flag="mision_comedor_activa",
+            excluye_flag="encargo_encontrado",
+            flags_add=("encargo_encontrado",),
+            items_add=("encargo de Doña Rosa",),
+            salud_delta=(-5, 0),
+            mensaje_efecto="Entre las góndolas volcadas, encontrás justo lo que te habían encargado.",
+        ),
         Opcion(texto="Rajar de ahí, esto se puede poner muy feo", destino="esquina_barrio",
                salud_delta=(-3, 0)),
     ),
@@ -542,7 +575,8 @@ _registrar(Nodo(
             salud_delta=(-15, -4),
             reputacion_delta=10,
             flags_add=("defendiste_comercio",),
-            items_add=("agradecimiento del dueño: bolsa de mercadería",),
+            items_add=("bolsa de mercadería",),
+            mensaje_efecto="El dueño, agradecido, te arma una bolsa con algo de mercadería.",
         ),
         Opcion(
             texto="Irte apenas baja la tensión, ya hiciste lo que pudiste",
@@ -789,14 +823,14 @@ _registrar(Nodo(
         Opcion(
             texto="Intentar colarte campo traviesa, lejos del control",
             destino="esquina_barrio",
-            destino_alt="final_preso",
+            destino_alt="carcel",
             prob_alt=0.25,
             salud_delta=(-8, -2),
         ),
         Opcion(
             texto="Discutir con el gendarme a cargo, exigir que te dejen pasar",
             destino="esquina_barrio",
-            destino_alt="final_preso",
+            destino_alt="carcel",
             prob_alt=0.15,
             reputacion_delta=-3,
         ),
@@ -857,23 +891,23 @@ _registrar(Nodo(
         "tranquilo y no va a pasar nada\", dice uno, con la mano en la cintura."
     ),
     opciones=(
-        Opcion(texto="Levantar las manos y entregarte", destino="final_preso"),
+        Opcion(texto="Levantar las manos y entregarte", destino="carcel"),
         Opcion(
             texto="Intentar zafar a las piñas",
             destino="esquina_barrio",
-            destino_alt="final_preso",
+            destino_alt="carcel",
             prob_alt=0.75,
             salud_delta=(-30, -10),
         ),
         Opcion(
             texto="Ofrecerles unos pesos para que te dejen ir",
             destino="esquina_barrio",
-            destino_alt="final_preso",
+            destino_alt="carcel",
             prob_alt=0.4,
             dinero_delta={"pesos": -30},
         ),
     ),
-    destino_libre="final_preso",
+    destino_libre="carcel",
 ))
 
 
@@ -900,13 +934,13 @@ _registrar(Nodo(
         Opcion(
             texto="Meterte por los jardines laterales",
             destino="casa_rosada_infiltracion",
-            destino_alt="final_preso",
+            destino_alt="carcel",
             prob_alt=0.4,
         ),
         Opcion(
             texto="Treparte por una reja donde ya se ve gente entrando",
             destino="casa_rosada_infiltracion",
-            destino_alt="final_preso",
+            destino_alt="carcel",
             prob_alt=0.3,
         ),
         Opcion(texto="Retirarte, esto es una locura", destino="esquina_barrio"),
@@ -934,7 +968,7 @@ _registrar(Nodo(
         Opcion(
             texto="Agarrar algún recuerdo y rajar antes de que te agarren",
             destino="esquina_barrio",
-            destino_alt="final_preso",
+            destino_alt="carcel",
             prob_alt=0.3,
             items_add=("un cuadro chico afanado de la Casa Rosada",),
         ),
@@ -945,26 +979,84 @@ _registrar(Nodo(
 
 
 # ---------------------------------------------------------------------------
-# 14. Finales nuevos: preso, represión de piquete, presidente
+# 14. Comisaría / cárcel — ya no es un final automático
 # ---------------------------------------------------------------------------
+# Caer preso no termina la partida de una: hay margen para mover algunas
+# fichas (abogado, coima, aguantar la audiencia) antes de que se defina de
+# verdad. El único final real de esta rama es final_condenado.
 
 _registrar(Nodo(
-    id="final_preso",
+    id="carcel",
     ubicacion="Comisaría del barrio",
     narracion=(
         "Te subieron al patrullero sin muchas explicaciones. La comisaría está "
         "desbordada, hay más gente detenida esta noche que espacio en los "
-        "calabozos. Te procesan con un montón de nombres más, todos con "
-        "historias parecidas a la tuya. Che, ahora lo único que te queda es "
-        "esperar que alguien allá afuera se acuerde de vos."
+        "calabozos. Te sientan en un banco de madera con un número de "
+        "expediente y te dicen que esperes. Todavía hay margen para mover "
+        "algunas fichas antes de que esto se termine de definir."
     ),
     imagen_en=(
         "the overcrowded inside of a small local police station at night in Buenos Aires, "
         "December 2001, detained people sitting on benches, a tired officer filling out "
         "paperwork, grim fluorescent lighting"
     ),
-    es_final=True,
-    final_tipo="preso",
+    opciones=(
+        Opcion(
+            texto="Pedir que llamen a un abogado (te va a costar unos pesos)",
+            destino="esquina_barrio",
+            destino_alt="carcel_audiencia",
+            prob_alt=0.3,
+            dinero_delta={"pesos": -60},
+            salud_delta=(-8, -2),
+            mensaje_efecto="El abogado de guardia mueve un par de contactos y te saca antes de la audiencia.",
+        ),
+        Opcion(
+            texto="Intentar coimear al oficial de turno",
+            destino="esquina_barrio",
+            destino_alt="carcel_audiencia",
+            prob_alt=0.55,
+            dinero_delta={"pesos": -30},
+            reputacion_delta=-5,
+            salud_delta=(-8, -2),
+        ),
+        Opcion(texto="Esperar tu turno sin hacer nada, a ver qué pasa", destino="carcel_audiencia"),
+    ),
+    destino_libre="carcel_audiencia",
+))
+
+_registrar(Nodo(
+    id="carcel_audiencia",
+    ubicacion="Comisaría del barrio, esperando audiencia",
+    narracion=(
+        "Te toca el turno frente a un fiscal que ya escuchó cuarenta casos "
+        "iguales al tuyo esta misma noche. Todo va rapidísimo: nombre, "
+        "cargos, una pregunta o dos. Nadie parece tener tiempo ni ganas de "
+        "escuchar la historia completa de nadie."
+    ),
+    opciones=(
+        Opcion(
+            texto="Declarar que fue todo un malentendido y pedir que te dejen ir",
+            destino="esquina_barrio",
+            destino_alt="final_condenado",
+            prob_alt=0.4,
+            salud_delta=(-5, 0),
+        ),
+        Opcion(
+            texto="Aceptar un defensor oficial y confiar en que te vaya bien",
+            destino="esquina_barrio",
+            destino_alt="final_condenado",
+            prob_alt=0.5,
+            salud_delta=(-5, 0),
+        ),
+        Opcion(
+            texto="Quedarte en silencio, total ya está todo dicho",
+            destino="esquina_barrio",
+            destino_alt="final_condenado",
+            prob_alt=0.6,
+            salud_delta=(-5, 0),
+        ),
+    ),
+    destino_libre="final_condenado",
 ))
 
 _registrar(Nodo(
@@ -988,6 +1080,25 @@ _registrar(Nodo(
 ))
 
 _registrar(Nodo(
+    id="final_condenado",
+    ubicacion="Comisaría del barrio",
+    narracion=(
+        "No hay abogado, coima ni discurso que alcance: te dictan la "
+        "prisión preventiva ahí mismo, en banda con otros diez casos de la "
+        "misma noche. Che, ahora lo único que te queda es esperar que "
+        "alguien allá afuera se acuerde de vos y que el expediente, algún "
+        "día, se mueva."
+    ),
+    imagen_en=(
+        "a somber scene of someone being led away into a holding cell at a crowded police "
+        "station at night, Buenos Aires December 2001, grim fluorescent lighting, resigned "
+        "expression"
+    ),
+    es_final=True,
+    final_tipo="condenado",
+))
+
+_registrar(Nodo(
     id="final_presidente",
     ubicacion="Casa Rosada, Salón Blanco",
     narracion=(
@@ -1007,6 +1118,239 @@ _registrar(Nodo(
     ),
     es_final=True,
     final_tipo="presidente",
+))
+
+
+# ---------------------------------------------------------------------------
+# 15. Comedor comunitario (sidequest)
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="comedor",
+    ubicacion="Comedor comunitario, en el salón de una ex fábrica",
+    narracion=(
+        "El comedor funciona en lo que era el salón de una fábrica cerrada "
+        "hace años. Ollas enormes, mesas de caballete, chicos comiendo antes "
+        "que los grandes. Doña Rosa, que lo lleva casi sola, no para de "
+        "moverse ni un segundo."
+    ),
+    dialogos=(
+        (
+            "Doña Rosa",
+            "Si me hacés una changa, te guardo un plato bien servido, no seas malo. Necesito algo "
+            "que se me perdió, y con este quilombo no puedo ir yo a buscarlo.",
+        ),
+    ),
+    opciones=(
+        Opcion(
+            texto="Ofrecerte a hacerle el mandado que necesite",
+            destino="comedor",
+            excluye_flag="mision_comedor_activa",
+            flags_add=("mision_comedor_activa",),
+            mensaje_efecto=(
+                "Doña Rosa te explica: dejó algo importante en el cibercafé antes de que "
+                "empezara el quilombo, y no descarta que haya quedado tirado en el "
+                "supermercado que saquearon. Andá a buscarlo donde puedas."
+            ),
+        ),
+        Opcion(
+            texto="Entregarle lo que conseguiste",
+            destino="comedor",
+            requiere_item="encargo de Doña Rosa",
+            items_quitar=("encargo de Doña Rosa",),
+            items_add=("bolsa de mercadería",),
+            dinero_delta={"creditos_trueque": 15},
+            reputacion_delta=10,
+            flags_add=("mision_comedor_completa",),
+            mensaje_efecto="Doña Rosa te abraza como si la hubieras sacado de un pozo.",
+        ),
+        Opcion(
+            texto="Comer un plato de guiso, sin pedir nada a cambio",
+            destino="esquina_barrio",
+            salud_delta=(15, 25),
+        ),
+        Opcion(texto="Irte", destino="esquina_barrio"),
+    ),
+    destino_libre="esquina_barrio",
+))
+
+
+# ---------------------------------------------------------------------------
+# 16. Economía: hospital y mercado negro
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="hospital",
+    ubicacion="Guardia del hospital público",
+    narracion=(
+        "La guardia está desbordada: sillas ocupadas, gente sentada en el "
+        "piso, un pibe con la cabeza vendada de cualquier manera. Huele a "
+        "alcohol en gel y a cansancio. Una enfermera hace lo que puede con lo "
+        "que hay, que no es mucho."
+    ),
+    opciones=(
+        Opcion(
+            texto="Pagar una consulta privada rápida, para no esperar",
+            destino="esquina_barrio",
+            dinero_delta={"pesos": -25},
+            salud_delta=(25, 35),
+            mensaje_efecto="Con unos pesos de más, todo se mueve más rápido en cualquier lado.",
+        ),
+        Opcion(
+            texto="Esperar tu turno en la guardia pública, gratis",
+            destino="esquina_barrio",
+            salud_delta=(8, 16),
+        ),
+        Opcion(texto="Irte, no tenés tiempo para esperar", destino="esquina_barrio"),
+    ),
+    destino_libre="esquina_barrio",
+))
+
+_registrar(Nodo(
+    id="camino_mercado_negro",
+    ubicacion="Callejones detrás del club de trueque",
+    narracion=(
+        "Un pibe que conoce a alguien te lleva por un pasillo entre casas, "
+        "después un descampado sin luz, después una casa sin cartel ni "
+        "timbre. El corazón se te acelera: esto no es ninguna joda, y no hay "
+        "vuelta atrás fácil una vez que empezás a caminar."
+    ),
+    opciones=(
+        Opcion(
+            texto="Seguir adelante, ya estás metido en esto",
+            destino="mercado_negro",
+            destino_alt="asalto_callejero",
+            prob_alt=0.2,
+        ),
+        Opcion(texto="Arrepentirte y volver, esto es una locura", destino="esquina_barrio"),
+    ),
+    destino_libre="mercado_negro",
+))
+
+_registrar(Nodo(
+    id="mercado_negro",
+    ubicacion="Una casa sin cartel, en algún lado del conurbano",
+    narracion=(
+        "Adentro, un tipo que no te mira a los ojos revisa lo que llevás "
+        "encima con una linterna. No pregunta de dónde salió nada, y vos "
+        "tampoco preguntás nada de él. Todo acá se paga en pesos, al "
+        "contado, y a un precio que no vas a poder discutir."
+    ),
+    dialogos=(
+        ("El reducidor", "Acá no hay factura ni devolución, así que pensalo bien antes de ofrecer algo."),
+    ),
+    imagen_en=(
+        "a shadowy figure examining stolen goods by flashlight inside a dim unmarked house, "
+        "a black market fence scene in a Buenos Aires suburb in December 2001, tense and "
+        "secretive atmosphere"
+    ),
+    opciones=(
+        Opcion(
+            texto="Vender el televisor chico que tenés",
+            destino="mercado_negro",
+            requiere_item="un televisor chico",
+            items_quitar=("un televisor chico",),
+            dinero_delta={"pesos": 25},
+            mensaje_efecto="Te paga bastante menos de lo que vale, pero no estás en condiciones de negociar.",
+        ),
+        Opcion(
+            texto="Vender el cuadro afanado de la Casa Rosada",
+            destino="mercado_negro",
+            requiere_item="un cuadro chico afanado de la Casa Rosada",
+            items_quitar=("un cuadro chico afanado de la Casa Rosada",),
+            dinero_delta={"pesos": 80},
+            mensaje_efecto="El tipo silba por lo bajo cuando lo ve. \"Esto sí que es raro\", dice, y paga sin discutir.",
+        ),
+        Opcion(
+            texto="Comprarle una bolsa de mercadería a sobreprecio",
+            destino="mercado_negro",
+            dinero_delta={"pesos": -15},
+            items_add=("bolsa de mercadería",),
+        ),
+        Opcion(texto="Irte de ahí cuanto antes, este lugar te da mala espina", destino="esquina_barrio"),
+    ),
+    destino_libre="esquina_barrio",
+))
+
+
+# ---------------------------------------------------------------------------
+# 17. Eventos ambientales del camino
+# ---------------------------------------------------------------------------
+# No siempre tienen un nodo que "lleva" hasta acá: game/engine.py también
+# puede redirigir al azar hacia estos nodos al entrar a la esquina del
+# barrio, simulando que en cualquier viaje por el conurbano te puede pasar
+# algo sin que lo hayas elegido.
+
+_registrar(Nodo(
+    id="asalto_callejero",
+    ubicacion="Un pasillo oscuro, en algún lado del camino",
+    narracion=(
+        "Dos tipos te cierran el paso. Uno te muestra algo brillante en la "
+        "cintura, no queda claro si es un arma de verdad o un bluff, y no "
+        "vas a quedarte a averiguarlo. \"Dejá todo y no pasa nada\", te dice, "
+        "con una calma que da más miedo que si gritara."
+    ),
+    imagen_en=(
+        "a tense mugging scene in a dark narrow alley in a Buenos Aires suburb at night, "
+        "two menacing figures blocking a person's path, December 2001, gritty and dangerous "
+        "atmosphere"
+    ),
+    opciones=(
+        Opcion(
+            texto="Entregar lo que tenés encima sin discutir",
+            destino="esquina_barrio",
+            dinero_delta={"pesos": -999, "patacones": -999, "lecops": -999},
+            reputacion_delta=-1,
+            mensaje_efecto="Te vacían los bolsillos y se van caminando tranquilos, como si nada.",
+        ),
+        Opcion(
+            texto="Correr antes de que reaccionen",
+            destino="esquina_barrio",
+            destino_alt="esquina_barrio",
+            salud_delta=(-15, -3),
+        ),
+        Opcion(
+            texto="Resistirte y no soltar tus cosas",
+            destino="esquina_barrio",
+            salud_delta=(-30, -12),
+        ),
+    ),
+    destino_libre="esquina_barrio",
+))
+
+_registrar(Nodo(
+    id="atrapado_manifestacion",
+    ubicacion="En medio de una manifestación que no era la tuya",
+    narracion=(
+        "Doblás en una esquina y quedás en medio de una columna de gente "
+        "marchando con bombos y banderas que ni sabés de qué agrupación son. "
+        "Antes de que puedas salir del medio, la marcha se cierra a tu "
+        "alrededor: para bien o para mal, ahora sos parte de esto."
+    ),
+    imagen_en=(
+        "a person unexpectedly caught in the middle of a large street march with flags and "
+        "drums in Buenos Aires, December 2001, dense crowd, dusk light, documentary "
+        "photojournalism framing"
+    ),
+    opciones=(
+        Opcion(
+            texto="Dejarte llevar por la marcha hasta que puedas salir",
+            destino="esquina_barrio",
+            salud_delta=(-5, 2),
+        ),
+        Opcion(
+            texto="Abrirte paso a los codazos para salir cuanto antes",
+            destino="esquina_barrio",
+            salud_delta=(-10, -2),
+            reputacion_delta=-2,
+        ),
+        Opcion(
+            texto="Aprovechar y sumarte a los cánticos, ya que estás",
+            destino="esquina_barrio",
+            reputacion_delta=3,
+        ),
+    ),
+    destino_libre="esquina_barrio",
 ))
 
 

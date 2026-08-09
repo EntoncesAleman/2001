@@ -7,8 +7,20 @@ barriales, los cacerolazos y los saqueos.
 
 El mismo motor de juego (`game/`) tiene **dos frontends**:
 
-- **Terminal** (`main.py`): con [rich](https://github.com/Textualize/rich) para una interfaz de consola prolija.
-- **Web** (`api/index.py`): una app [Flask](https://flask.palletsprojects.com/) lista para desplegar en [Vercel](https://vercel.com/).
+- **Terminal** (`main.py`): con [rich](https://github.com/Textualize/rich) para una interfaz de consola prolija, con efecto de tipeo tipo máquina de escribir.
+- **Web** (`api/index.py`): una app [Flask](https://flask.palletsprojects.com/) lista para desplegar en [Vercel](https://vercel.com/), con cutscene animada de apertura y el mismo efecto de tipeo (con clic sintetizado, sin ningún sample de audio real).
+
+Al arrancar, elegís entre dos formas de jugar:
+
+- **Modo historia** — un grafo de ~40 escenas ya escritas (`game/story.py`), con
+  economía (comprar/vender, mercado negro de objetos robados, comida que cura,
+  hospital), una sidequest en el comedor del barrio, eventos aleatorios en el
+  camino (robos, quedar atrapado en una manifestación), persecuciones
+  policiales, una cárcel interactiva (abogado, coima, audiencia) y 7 finales
+  distintos. Funciona 100% sin ninguna API.
+- **Modo libre (IA)** — sin grafo fijo: un LLM (Gemini o Claude) improvisa
+  toda la historia turno a turno. Solo se ofrece si el servidor tiene una API
+  key configurada (ver sección 4).
 
 En los momentos climáticos de la historia, el juego genera un link de imagen
 en estilo **pintura cinematográfica realista** (paleta azul/violeta, tono
@@ -85,17 +97,25 @@ export SECRET_KEY="una-clave-larga-y-random-tuya"
 
 ## 4. (Opcional pero recomendado) Gemini como Game Master
 
-El motor de nodos (`game/story.py` + `game/free_text.py`) resuelve **todo**
-mecánicamente por su cuenta (salud, dinero, reputación, a qué escena se
-pasa) y trae narración propia en rioplatense escrita a mano — así el juego
-es 100% jugable sin ninguna API key. Pero si configurás **Google Gemini**
-(o Anthropic/Claude), ese texto fijo pasa a ser el último recurso: el LLM
-se convierte en el narrador principal de cada turno — tanto para las
-opciones numeradas como para las acciones libres — redactando la escena en
-su propio estilo a partir del resultado que el motor ya decidió. Los
-efectos mecánicos **nunca** los define ni puede cambiarlos el LLM, solo la
-prosa que lee el jugador. Elegí uno de los dos (si configurás las dos,
-gana Gemini):
+En **modo historia**, el motor de nodos (`game/story.py` + `game/free_text.py`)
+resuelve **todo** mecánicamente por su cuenta (salud, dinero, reputación, a
+qué escena se pasa) y trae narración propia en rioplatense escrita a mano —
+así el juego es 100% jugable sin ninguna API key. Pero si configurás
+**Google Gemini** (o Anthropic/Claude), ese texto fijo pasa a ser el último
+recurso: el LLM se convierte en el narrador principal de cada turno — tanto
+para las opciones numeradas como para las acciones libres — redactando la
+escena en su propio estilo a partir del resultado que el motor ya decidió.
+Los efectos mecánicos **nunca** los define ni puede cambiarlos el LLM, solo
+la prosa que lee el jugador.
+
+La misma API key habilita además el **modo libre** (`game/modo_libre.py`):
+ahí no hay grafo fijo, el LLM decide la escena, las opciones tácticas y los
+efectos de cada turno directamente (siempre en JSON estructurado, que el
+motor valida y limita antes de aplicar — por ejemplo, ningún turno puede
+curar más de 30 de salud ni matar más rápido que perdiendo 60). Si no hay
+ninguna key configurada, el modo libre directamente no aparece como opción.
+
+Elegí uno de los dos proveedores (si configurás las dos, gana Gemini):
 
 ```bash
 # Opción A: Claude
@@ -154,11 +174,12 @@ juego texto/
 │       └── intro-musica.mp3     # (opcional) música de fondo de la cutscene, la ponés vos
 ├── game/                      # Motor del juego — sin I/O de terminal ni red directa
 │   ├── state.py                # EstadoJugador, Dinero (pesos/Patacones/Lecops/créditos)
-│   ├── story.py                 # Grafo de nodos narrativos + opciones + finales
+│   ├── story.py                 # Grafo de nodos narrativos + opciones + finales (modo historia)
 │   ├── free_text.py              # Intérprete de acciones libres por palabras clave
-│   ├── llm.py                     # Narración opcional vía API de Anthropic
+│   ├── llm.py                     # Narración (modo historia) y turnos en JSON (modo libre)
 │   ├── images.py                   # Constructor de URLs de Pollinations.ai
-│   └── engine.py                    # Conecta todo: crear partida, avanzar turnos
+│   ├── engine.py                    # Motor del modo historia: crear partida, avanzar turnos
+│   └── modo_libre.py                 # Motor del modo libre: sin grafo, todo lo decide el LLM
 ├── partidas/                  # Partidas guardadas en JSON (terminal)
 ├── requirements.txt
 ├── vercel.json
@@ -184,17 +205,38 @@ muere en el acto (`final_muerte`), sin importar en qué nodo esté.
 
 Siete desenlaces posibles:
 
-- `final_objetivo_cumplido`, `final_comunidad` o `final_solitario` — se
-  deciden en `game/engine.py:elegir_final` según las flags y la reputación
-  barrial acumuladas al llegar al hub nocturno (`calle_noche`).
-- `final_muerte` — la salud llegó a 0 en cualquier momento de la partida.
-- `final_preso` — te agarra la policía (saqueando, en una persecución, o
-  intentando colarte en un control de ruta).
-- `final_represion_derrota` — te reprimen el piquete en el que estabas.
-- `final_presidente` — el final "secreto": infiltrarte en la Casa Rosada,
-  que queda desprotegida tras la partida del helicóptero presidencial (el
+- `objetivo_cumplido`, `comunidad` o `solitario` — se deciden en
+  `game/engine.py:elegir_final` según las flags y la reputación barrial
+  acumuladas al llegar al hub nocturno (`calle_noche`).
+- `muerte` — la salud llegó a 0 en cualquier momento de la partida.
+- `represion_derrota` — te reprimen el piquete en el que estabas.
+- `condenado` — caer preso (saqueando, en una persecución, o intentando
+  colarte en un control de ruta) no termina la partida: en `carcel` /
+  `carcel_audiencia` podés pagar un abogado, coimear, o jugártela sin más.
+  Si no te sale nada, este es el final real.
+- `presidente` — el final "secreto": infiltrarte en la Casa Rosada, que
+  queda desprotegida tras la partida del helicóptero presidencial (el
   mismo de la cutscene de apertura), y sentarte en el sillón.
 
 No hay forma de terminar la partida saliendo del Conurbano/CABA: cualquier
 intento de cruzar el límite del AMBA (`control_ruta`) siempre te devuelve
 —en el mejor caso con un buen susto, en el peor, preso.
+
+### Economía, misiones y eventos aleatorios (modo historia)
+
+- **Comida cura salud**: conseguís "bolsa de mercadería" en el trueque, el
+  comedor o saqueando, y la "comés" en cualquier momento desde la esquina
+  del barrio.
+- **Hospital**: consulta privada rápida (cuesta pesos, cura mucho) o guardia
+  pública gratis (cura menos).
+- **Mercado negro**: el único lugar donde vender objetos robados (el
+  televisor, el cuadro afanado de la Casa Rosada) — turbio y difícil de
+  llegar (`club_trueque` → `camino_mercado_negro`, con riesgo de asalto en
+  el camino).
+- **Sidequest del comedor**: Doña Rosa te pide un encargo perdido; lo
+  encontrás revisando en el cibercafé o en el supermercado saqueado, y
+  volvés a entregárselo por una recompensa.
+- **Eventos aleatorios**: cada vez que volvés a la esquina del barrio hay
+  una chance chica de que te asalten o quedes atrapado en una
+  manifestación que no era la tuya — nunca en el primer turno, nunca dos
+  veces seguidas.

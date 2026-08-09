@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 
 @dataclass
@@ -90,6 +90,18 @@ class EstadoJugador:
     vivo: bool = True
     ultima_imagen_url: str = ""
 
+    # --- Solo se usan en modo "libre" (game/modo_libre.py) -----------------
+    # En modo "historia" la fuente de verdad es el grafo de game/story.py
+    # (nodo_actual); en modo "libre" no hay grafo fijo, así que la escena, las
+    # opciones y el desenlace los guarda el LLM turno a turno directamente acá.
+    modo: str = "historia"
+    escena_libre: str = ""
+    dialogos_libres: List[Tuple[str, str]] = field(default_factory=list)
+    opciones_libres: List[str] = field(default_factory=list)
+    historial_libre: List[Dict[str, str]] = field(default_factory=list)
+    es_final_libre: bool = False
+    final_tipo_libre: Optional[str] = None
+
     def salud_clamp(self) -> None:
         self.salud = max(0, min(100, self.salud))
         if self.salud <= 0:
@@ -147,6 +159,13 @@ class EstadoJugador:
             "turno": self.turno,
             "vivo": self.vivo,
             "ultima_imagen_url": self.ultima_imagen_url,
+            "modo": self.modo,
+            "escena_libre": self.escena_libre,
+            "dialogos_libres": [list(d) for d in self.dialogos_libres],
+            "opciones_libres": list(self.opciones_libres),
+            "historial_libre": list(self.historial_libre),
+            "es_final_libre": self.es_final_libre,
+            "final_tipo_libre": self.final_tipo_libre,
         }
 
     @staticmethod
@@ -169,4 +188,11 @@ class EstadoJugador:
         estado.turno = datos.get("turno", 0)
         estado.vivo = datos.get("vivo", True)
         estado.ultima_imagen_url = datos.get("ultima_imagen_url", "")
+        estado.modo = datos.get("modo", "historia")
+        estado.escena_libre = datos.get("escena_libre", "")
+        estado.dialogos_libres = [tuple(d) for d in datos.get("dialogos_libres", [])]
+        estado.opciones_libres = list(datos.get("opciones_libres", []))
+        estado.historial_libre = list(datos.get("historial_libre", []))
+        estado.es_final_libre = datos.get("es_final_libre", False)
+        estado.final_tipo_libre = datos.get("final_tipo_libre")
         return estado
