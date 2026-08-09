@@ -18,6 +18,7 @@ from game.state import (
     ZONA_INFO,
     detectar_categoria_objetivo,
     detectar_zona_gba,
+    mensaje_cambio_camino,
     resumen_camino,
 )
 
@@ -429,6 +430,8 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
         vista["mensaje_error"] = "Ya no es algo que harías, con el camino que elegiste."
         return vista
 
+    alineacion_antes = estado.alineacion
+
     if opcion.salud_delta != (0, 0):
         estado.salud += random.randint(*opcion.salud_delta)
     estado.reputacion_barrial += opcion.reputacion_delta
@@ -471,8 +474,10 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
 
     _entrar_nodo(estado, destino)
     vista = vista_actual(estado)
-    if opcion.mensaje_efecto or mensaje_robo:
-        vista["mensaje_efecto"] = (opcion.mensaje_efecto + mensaje_robo).strip()
+    aviso_camino = mensaje_cambio_camino(alineacion_antes, estado.alineacion)
+    if opcion.mensaje_efecto or mensaje_robo or aviso_camino:
+        partes = [opcion.mensaje_efecto.strip(), mensaje_robo.strip(), aviso_camino or ""]
+        vista["mensaje_efecto"] = " ".join(p for p in partes if p)
 
     if llm.modelo_configurado():
         nodo_nuevo = story.obtener_nodo(estado.nodo_actual)

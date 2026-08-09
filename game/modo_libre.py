@@ -19,7 +19,13 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from game import images, llm
-from game.state import Dinero, EstadoJugador, detectar_categoria_objetivo, resumen_camino
+from game.state import (
+    Dinero,
+    EstadoJugador,
+    detectar_categoria_objetivo,
+    mensaje_cambio_camino,
+    resumen_camino,
+)
 
 # Cuántos turnos recientes se le mandan al modelo como contexto. Tiene que
 # ser chico: el estado completo viaja en una cookie de sesión firmada (no
@@ -255,9 +261,14 @@ def _procesar_turno(estado: EstadoJugador, accion_jugador: str) -> Dict[str, Any
         return vista
 
     _agregar_historial(estado, accion_jugador, estado.escena_libre)
+    alineacion_antes = estado.alineacion
     _aplicar_respuesta(estado, respuesta)
     estado.turno += 1
-    return vista_actual_libre(estado)
+    vista = vista_actual_libre(estado)
+    aviso_camino = mensaje_cambio_camino(alineacion_antes, estado.alineacion)
+    if aviso_camino:
+        vista["mensaje_efecto"] = aviso_camino
+    return vista
 
 
 def elegir_opcion_libre(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:

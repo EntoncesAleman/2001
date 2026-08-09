@@ -69,6 +69,39 @@ def resumen_camino(alineacion: int) -> str:
     return "ambivalente"
 
 
+# Umbral de cambio "grande" en un solo turno como para avisar aunque no haya
+# cruzado de un camino a otro (ver mensaje_cambio_camino) — por debajo de
+# esto, la mayoría de las decisiones sueltas no avisan nada: si avisara
+# siempre, el aviso perdería todo el peso.
+UMBRAL_CAMBIO_CAMINO_NOTABLE = 12
+
+
+def mensaje_cambio_camino(alineacion_antes: int, alineacion_despues: int) -> Optional[str]:
+    """Devuelve un aviso en el momento cuando una decisión mueve el "camino"
+    legal/ilegal de forma perceptible, o None si el movimiento fue chico.
+
+    El indicador 🧭 Camino del panel de estado ya muestra el valor actual en
+    todo momento, pero es fácil no registrar que se está moviendo turno a
+    turno; esto conecta la decisión puntual con su efecto, en el momento.
+    """
+    camino_antes = resumen_camino(alineacion_antes)
+    camino_despues = resumen_camino(alineacion_despues)
+    if camino_antes == camino_despues:
+        delta = alineacion_despues - alineacion_antes
+        if abs(delta) < UMBRAL_CAMBIO_CAMINO_NOTABLE:
+            return None
+        return (
+            "🧭 Esto te corre con fuerza hacia afuera de la ley."
+            if delta < 0
+            else "🧭 Esto te corre con fuerza hacia dentro de la ley."
+        )
+    if camino_despues == "fuera de la ley":
+        return "🧭 Cruzaste una línea: sentís que ya estás actuando fuera de la ley."
+    if camino_despues == "dentro de la ley":
+        return "🧭 Sentís que volviste a actuar dentro de la ley."
+    return "🧭 Tu camino se vuelve más ambivalente: ya no estás tan definido de un lado."
+
+
 @dataclass
 class Dinero:
     """Las tres (o cuatro) formas de "plata" que circulaban en diciembre de 2001."""
