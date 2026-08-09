@@ -22,10 +22,11 @@ python3 v2/app.py       # sirve en http://localhost:5100
 ```
 
 Necesita las variables de entorno `SUPABASE_URL` y `SUPABASE_KEY` (la key
-"anon"/pública). Para el modo IA hace falta además `GEMINI_API_KEY` o
-`ANTHROPIC_API_KEY` (misma variable que usa el v1) — sin ninguna de las dos,
-`/api/modo_disponible` da `libre_disponible: false` y el frontend deja esa
-pestaña deshabilitada, mostrando solo la mesa chica sin IA. Si no se setean
+"anon"/pública). Para el modo IA hace falta además `GROQ_API_KEY` (recomendada,
+free tier mucho más generoso), `GEMINI_API_KEY` o `ANTHROPIC_API_KEY` (misma
+variable que usa el v1) — sin ninguna de las tres, `/api/modo_disponible` da
+`libre_disponible: false` y el frontend deja esa pestaña deshabilitada,
+mostrando solo la mesa chica sin IA. Si no se setean
 las de Supabase, usa por defecto el proyecto Supabase
 `odisea-2001-multijugador` creado para este prototipo — andá a
 [supabase.com/dashboard](https://supabase.com/dashboard) con la cuenta

@@ -14,17 +14,27 @@ del motor de nodos: garantizar que el juego sea 100% jugable sin ninguna
 API, no reemplazar al LLM cuando sí está disponible.
 
 Proveedor usado (auto-detectado por qué variable de entorno esté seteada,
-priorizando Gemini si tenés las dos, o forzado con LLM_PROVIDER=gemini|anthropic):
+priorizando Groq > Gemini > Anthropic si hay varias, o forzado con
+LLM_PROVIDER=groq|gemini|anthropic):
 
+- Groq:               GROQ_API_KEY      [+ GROQ_MODEL opcional]
 - Google Gemini:      GEMINI_API_KEY    [+ GEMINI_MODEL opcional]
 - Anthropic (Claude): ANTHROPIC_API_KEY [+ ANTHROPIC_MODEL opcional]
+
+Groq va primero por default: es el que tiene, de lejos, el free tier más
+generoso de los tres (miles de requests/día contra los ~20/día que suele dar
+Gemini en cuentas nuevas), así que es el más probable que efectivamente
+funcione en una demo sin plan pago en ningún lado.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import sys
 from typing import Any, Dict, List, Optional
+
+import requests
 
 SYSTEM_PROMPT = (
     "Sos el Game Master de un RPG textual de supervivencia ambientado en la "
@@ -42,6 +52,8 @@ SYSTEM_PROMPT = (
 
 MODELO_ANTHROPIC_POR_DEFECTO = "claude-sonnet-5"
 MODELO_GEMINI_POR_DEFECTO = "gemini-2.5-flash"
+MODELO_GROQ_POR_DEFECTO = "llama-3.3-70b-versatile"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
 def _proveedor_activo() -> Optional[str]:
@@ -51,9 +63,13 @@ def _proveedor_activo() -> Optional[str]:
         return "anthropic" if os.environ.get("ANTHROPIC_API_KEY") else None
     if forzado in ("gemini", "google"):
         return "gemini" if os.environ.get("GEMINI_API_KEY") else None
+    if forzado == "groq":
+        return "groq" if os.environ.get("GROQ_API_KEY") else None
 
-    # Sin forzar nada: el que tenga la key seteada, priorizando Gemini si
-    # por algún motivo estuvieran las dos.
+    # Sin forzar nada: Groq primero (ver docstring del módulo), después
+    # Gemini, después Anthropic.
+    if os.environ.get("GROQ_API_KEY"):
+        return "groq"
     if os.environ.get("GEMINI_API_KEY"):
         return "gemini"
     if os.environ.get("ANTHROPIC_API_KEY"):
@@ -75,6 +91,11 @@ def modelo_configurado() -> bool:
             from google import genai  # noqa: F401
         except ImportError:
             return False
+        return True
+    if proveedor == "groq":
+        # Sin SDK propio: pega directo a la API HTTP (compatible con el
+        # formato de OpenAI) usando requests, que ya es una dependencia del
+        # proyecto — no hay nada que importar para verificar acá.
         return True
     return False
 
@@ -128,6 +149,37 @@ def _generar_con_gemini(mensaje_usuario: str) -> Optional[str]:
     return texto or None
 
 
+def _chat_groq(mensajes: List[Dict[str, str]], max_tokens: int, json_mode: bool = False) -> str:
+    """POST directo a la API HTTP de Groq (compatible con el formato de
+    OpenAI): no requiere un SDK propio, solo `requests`."""
+    cuerpo: Dict[str, Any] = {
+        "model": os.environ.get("GROQ_MODEL", MODELO_GROQ_POR_DEFECTO),
+        "messages": mensajes,
+        "max_tokens": max_tokens,
+    }
+    if json_mode:
+        cuerpo["response_format"] = {"type": "json_object"}
+    respuesta = requests.post(
+        GROQ_URL,
+        headers={"Authorization": f"Bearer {os.environ['GROQ_API_KEY']}"},
+        json=cuerpo,
+        timeout=25,
+    )
+    respuesta.raise_for_status()
+    return respuesta.json()["choices"][0]["message"]["content"]
+
+
+def _generar_con_groq(mensaje_usuario: str) -> Optional[str]:
+    texto = _chat_groq(
+        [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": mensaje_usuario},
+        ],
+        max_tokens=300,
+    ).strip()
+    return texto or None
+
+
 def generar_narracion(
     contexto_escena: str,
     ubicacion: str,
@@ -154,6 +206,8 @@ def generar_narracion(
             return _generar_con_anthropic(mensaje)
         if proveedor == "gemini":
             return _generar_con_gemini(mensaje)
+        if proveedor == "groq":
+            return _generar_con_groq(mensaje)
     except Exception:
         # Cualquier problema de red, autenticación, rate-limit, etc.: el
         # juego sigue con la narración de free_text.py sin explotar.
@@ -385,6 +439,18 @@ def _generar_json_con_gemini(mensaje_usuario: str) -> Optional[Dict[str, Any]]:
     return _parsear_json_llm(getattr(respuesta, "text", None) or "")
 
 
+def _generar_json_con_groq(mensaje_usuario: str) -> Optional[Dict[str, Any]]:
+    texto = _chat_groq(
+        [
+            {"role": "system", "content": SYSTEM_PROMPT_LIBRE},
+            {"role": "user", "content": mensaje_usuario},
+        ],
+        max_tokens=1400,
+        json_mode=True,
+    )
+    return _parsear_json_llm(texto)
+
+
 def generar_turno_libre(
     historial: List[Dict[str, str]],
     estado_resumen: str,
@@ -411,6 +477,14 @@ def generar_turno_libre(
             return _generar_json_con_anthropic(mensaje)
         if proveedor == "gemini":
             return _generar_json_con_gemini(mensaje)
-    except Exception:
+        if proveedor == "groq":
+            return _generar_json_con_groq(mensaje)
+    except Exception as error:
+        # A diferencia de generar_narracion(), acá no hay contenido fijo de
+        # respaldo (ver docstring de esta función) — sin este log, un fallo
+        # en producción (rate limit, key inválida, etc.) queda invisible:
+        # el jugador solo ve "no se pudo generar el siguiente turno", sin
+        # forma de distinguir la causa en los logs de Vercel.
+        print(f"[llm.generar_turno_libre] fallo con proveedor={proveedor}: {error}", file=sys.stderr)
         return None
     return None

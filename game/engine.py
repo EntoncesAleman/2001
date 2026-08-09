@@ -331,6 +331,7 @@ def vista_actual(estado: EstadoJugador) -> Dict[str, Any]:
             "dinero": estado.dinero.describir(),
             "dia": estado.etiqueta_capitulo(),
             "mision": estado.objetivo,
+            "camino": resumen_camino(estado.alineacion),
         },
         "estadisticas": estado.generar_estadisticas(nodo.final_tipo) if nodo.es_final else None,
         "mensaje_error": None,

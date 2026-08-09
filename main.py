@@ -52,6 +52,32 @@ def mostrar_titulo() -> None:
     console.print()
 
 
+def mostrar_instrucciones() -> None:
+    console.print(
+        Panel(
+            "[bold]Objetivo:[/bold] vas a elegir una prioridad apenas arranque la partida "
+            "(plata, un familiar, tu changa/negocio, o ninguna en particular) y tenés que "
+            "resolverla como puedas antes de que se acaben los días.\n\n"
+            "[bold]Días:[/bold] tenés 7 días (capítulos). Cada decisión puede consumir tiempo, "
+            "salud, plata o reputación — y no hay forma de deshacerla.\n\n"
+            "[bold]El camino:[/bold] lo que vas eligiendo te corre hacia [italic]dentro de la "
+            "ley[/italic] o [italic]fuera de la ley[/italic] (se ve como 🧭 Camino en el panel de "
+            "estado, en todo momento). Eso abre y cierra qué opciones y finales vas a poder "
+            "alcanzar más adelante — no es solo color de la narración.\n\n"
+            "[bold]Puntaje:[/bold] al final se suma tu reputación + la mitad de tu salud + tu "
+            "plata + los días que llegaste a avanzar + los hitos que fuiste logrando + los "
+            "lugares que recorriste, más un bonus según cómo termines la partida.\n\n"
+            "[bold]Cómo jugar:[/bold] en cada turno vas a poder elegir una de las opciones "
+            "numeradas, o escribir tu propia acción libre con tus palabras — las dos formas "
+            "cuentan como una decisión real.",
+            title="CÓMO SE JUEGA",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+    )
+    console.print()
+
+
 def mostrar_imagen(url: Optional[str]) -> None:
     if not url:
         return
@@ -99,6 +125,7 @@ def mostrar_panel_estado(vista: dict) -> None:
         f"📍 Ubicación: {panel['ubicacion']}\n"
         f"🎒 Inventario/Recursos: {panel['inventario']}\n"
         f"⚠️  Estado/Salud: {panel['salud']}\n"
+        f"🧭 Camino: {panel.get('camino', 'ambivalente')}\n"
         f"{linea}"
     )
     console.print(cuerpo, style="bold cyan")
@@ -384,6 +411,7 @@ def main() -> None:
 
     estado = preguntar_continuar_partida_guardada()
     if estado is None:
+        mostrar_instrucciones()
         modo = elegir_modo()
         estado = alta_de_personaje(modo)
 

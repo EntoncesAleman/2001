@@ -270,6 +270,7 @@ function renderVista(vista) {
     `Ubicación: ${panel.ubicacion || ""}\n` +
     `Inventario: ${panel.inventario || ""}\n` +
     `Salud: ${panel.salud || ""}\n` +
+    `Camino: ${panel.camino || "ambivalente"}\n` +
     `${linea}`;
 
   $("narracion").textContent = vista.narracion || "";

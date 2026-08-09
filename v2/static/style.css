@@ -66,6 +66,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .texto-ayuda { color: #9fb0e8; font-size: 0.9rem; }
 .mensaje-error { color: var(--rojo); }
 
+.reglas-juego {
+  background: #060a18;
+  border: 1px dashed var(--borde);
+  border-radius: 4px;
+  padding: 0.8rem 1rem;
+  margin: 0.8rem 0 1.1rem;
+}
+.reglas-titulo { margin: 0 0 0.5rem; color: var(--amarillo); font-size: 0.85rem; letter-spacing: 0.03em; }
+.reglas-juego ul { margin: 0; padding-left: 1.1rem; }
+.reglas-juego li { font-size: 0.9rem; line-height: 1.4; margin-bottom: 0.4rem; color: var(--texto); }
+.reglas-juego li:last-child { margin-bottom: 0; }
+
 .lista-jugadores { list-style: none; margin: 0.6rem 0; padding: 0; }
 .lista-jugadores li {
   padding: 0.4rem 0.6rem;

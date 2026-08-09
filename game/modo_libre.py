@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from game import images, llm
-from game.state import Dinero, EstadoJugador, detectar_categoria_objetivo
+from game.state import Dinero, EstadoJugador, detectar_categoria_objetivo, resumen_camino
 
 # Cuántos turnos recientes se le mandan al modelo como contexto. Tiene que
 # ser chico: el estado completo viaja en una cookie de sesión firmada (no
@@ -224,6 +224,7 @@ def vista_actual_libre(estado: EstadoJugador) -> Dict[str, Any]:
             "dinero": estado.dinero.describir(),
             "dia": estado.etiqueta_capitulo(),
             "mision": estado.objetivo,
+            "camino": resumen_camino(estado.alineacion),
         },
         "estadisticas": estado.generar_estadisticas(estado.final_tipo_libre) if estado.es_final_libre else None,
         "mensaje_error": None,

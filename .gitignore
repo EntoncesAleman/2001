@@ -17,3 +17,7 @@ imagenes/*.jpg
 # Documento de diseño con spoilers de todos los caminos/finales: uso interno,
 # nunca se sube al repo.
 WALKTHROUGH.txt
+
+# Repo externo clonado como referencia de proveedores de LLM gratuitos, no es
+# parte de este proyecto.
+free-llm-api-resources/

@@ -43,12 +43,13 @@ pip install -r requirements.txt
 `requirements.txt` instala:
 
 - `rich` — interfaz de consola (colores, paneles, prompts).
-- `requests` — llamadas HTTP (usado si activás la descarga de imágenes, ver más abajo).
+- `requests` — llamadas HTTP (usado para Groq y para la descarga de imágenes, ver más abajo).
 - `Flask` — el servidor web para la variante navegador/Vercel.
 - `anthropic` / `google-genai` — opcionales, solo se usan si configurás
-  `ANTHROPIC_API_KEY` o `GEMINI_API_KEY` respectivamente (ver sección 4).
+  `ANTHROPIC_API_KEY` o `GEMINI_API_KEY` respectivamente (ver sección 4). Groq
+  no necesita SDK propio, pega directo a su API con `requests`.
 
-No es obligatorio instalar ninguno de los dos ni tener API key: **el juego funciona
+No es obligatorio instalar ninguno ni tener API key: **el juego funciona
 completo sin ninguna clave**, con un motor narrativo de nodos con estado
 propio y un intérprete de texto libre por palabras clave.
 
@@ -115,20 +116,28 @@ motor valida y limita antes de aplicar — por ejemplo, ningún turno puede
 curar más de 30 de salud ni matar más rápido que perdiendo 60). Si no hay
 ninguna key configurada, el modo libre directamente no aparece como opción.
 
-Elegí uno de los dos proveedores (si configurás las dos, gana Gemini):
+Elegí uno de los tres proveedores (si configurás varias, gana Groq — ver por qué abajo):
 
 ```bash
-# Opción A: Claude
+# Opción A: Groq (recomendado — el free tier más generoso de los tres,
+# de lejos: sirve para jugar y probar sin toparte con límites todo el tiempo)
+export GROQ_API_KEY="gsk_..."                # la sacás gratis en https://console.groq.com/keys
+export GROQ_MODEL="llama-3.3-70b-versatile"  # opcional, es el default
+
+# Opción B: Claude
 export ANTHROPIC_API_KEY="sk-ant-..."
 export ANTHROPIC_MODEL="claude-sonnet-5"   # opcional, es el default
 
-# Opción B: Gemini
+# Opción C: Gemini
 export GEMINI_API_KEY="AIza..."             # la sacás de https://aistudio.google.com/apikey
 export GEMINI_MODEL="gemini-2.5-flash"      # opcional, es el default
 ```
 
-Si tenés las dos keys configuradas a la vez, se usa Gemini por defecto;
-podés forzar cuál usar con `export LLM_PROVIDER="gemini"` (o `"anthropic"`).
+El free tier de Gemini para cuentas nuevas suele venir con un límite de
+apenas ~20 requests/día para `gemini-2.5-flash` — se agota enseguida
+jugando en serio. Por eso, si tenés varias keys configuradas a la vez, se
+usa Groq por defecto; podés forzar cuál usar con
+`export LLM_PROVIDER="groq"` (o `"gemini"` / `"anthropic"`).
 
 Si no configurás nada, o falla la llamada por cualquier motivo (sin
 conexión, rate limit, key inválida, etc.), el juego sigue funcionando con
@@ -149,8 +158,9 @@ vercel --prod        # deploy de producción
 ```
 
 Después de vincular el proyecto, seteá la variable de entorno `SECRET_KEY`
-(y opcionalmente `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` o `GEMINI_API_KEY` /
-`GEMINI_MODEL`, ver sección 4) desde el dashboard de Vercel o con:
+(y opcionalmente `GROQ_API_KEY`, `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` o
+`GEMINI_API_KEY` / `GEMINI_MODEL`, ver sección 4) desde el dashboard de
+Vercel o con:
 
 ```bash
 vercel env add SECRET_KEY production

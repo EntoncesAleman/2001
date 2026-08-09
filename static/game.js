@@ -484,6 +484,7 @@ function renderVista(vista) {
     `📍 Ubicación: ${panel.ubicacion}\n` +
     `🎒 Inventario/Recursos: ${panel.inventario}\n` +
     `⚠️  Estado/Salud: ${panel.salud}\n` +
+    `🧭 Camino: ${panel.camino || "ambivalente"}\n` +
     `${linea}`;
 
   if (vista.es_final) {
