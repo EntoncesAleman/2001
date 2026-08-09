@@ -21,6 +21,7 @@ class Opcion:
     salud_delta: Tuple[int, int] = (0, 0)
     dinero_delta: Dict[str, int] = field(default_factory=dict)
     reputacion_delta: int = 0
+    alineacion_delta: int = 0
 
     flags_add: Tuple[str, ...] = ()
     flags_quitar: Tuple[str, ...] = ()
@@ -28,6 +29,7 @@ class Opcion:
     items_quitar: Tuple[str, ...] = ()
     estados_add: Tuple[str, ...] = ()
     estados_quitar: Tuple[str, ...] = ()
+    roba_item_aleatorio: bool = False
 
     requiere_flag: Optional[str] = None
     requiere_item: Optional[str] = None
@@ -37,6 +39,14 @@ class Opcion:
     prob_alt: float = 0.0
 
     mensaje_efecto: str = ""
+
+
+# Probabilidades de referencia para marcar una opción como "delictiva":
+# siempre que un personaje hace algo ilegal, tiene que existir la chance de
+# que la policía lo esté persiguiendo poco después (destino_alt="persecucion").
+RIESGO_BAJO = 0.15
+RIESGO_MEDIO = 0.3
+RIESGO_ALTO = 0.5
 
 
 @dataclass(frozen=True)
@@ -52,6 +62,16 @@ class Nodo:
     estados_entrada: Tuple[str, ...] = ()
     es_final: bool = False
     final_tipo: Optional[str] = None
+    # Si está seteado, este nodo es un "hub" de capítulo: a partir de
+    # TURNO_LIMITE_CANSANCIO (game/engine.py) aparece una opción extra para
+    # cerrar la escena y avanzar directo a este destino, sin importar qué
+    # más haya para explorar acá. Nodos de paso (no-hub) lo dejan en None.
+    destino_cansancio: Optional[str] = None
+    # Capítulo de la campaña al que pertenece (1 = días previos, 2 = noche
+    # del 19, 3 = el día del estallido, 4-6 = la semana de los presidentes,
+    # 7 = cierre). None = no cambia el capítulo actual al entrar (nodos de
+    # servicio como el hospital o el trueque, reusados en varios capítulos).
+    capitulo: Optional[int] = None
 
 
 NODOS: Dict[str, Nodo] = {}
@@ -59,6 +79,77 @@ NODOS: Dict[str, Nodo] = {}
 
 def _registrar(nodo: Nodo) -> None:
     NODOS[nodo.id] = nodo
+
+
+# ---------------------------------------------------------------------------
+# 0. Aperturas (varían según el objetivo elegido al crear el personaje;
+#    todas convergen a "esquina_barrio" en un solo paso — la misma aventura
+#    puede arrancar de formas distintas y llegar a los mismos lugares).
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="inicio_plata",
+    ubicacion="Tu casa, temprano a la mañana",
+    narracion=(
+        "Contás las últimas monedas de 25 sobre la mesa de la cocina, al lado "
+        "de la libreta del banco que ya casi no sirve de nada: los números "
+        "que dice y la plata real que existe hace rato que dejaron de ser lo "
+        "mismo. Tenés que salir a resolver esto como sea."
+    ),
+    opciones=(
+        Opcion(texto="Salir para el barrio a ver qué se puede hacer", destino="esquina_barrio"),
+    ),
+    destino_libre="esquina_barrio",
+    capitulo=1,
+))
+
+_registrar(Nodo(
+    id="inicio_familiar",
+    ubicacion="Tu casa, temprano a la mañana",
+    narracion=(
+        "Hace días que no sabés nada. El teléfono de línea corta y vuelve "
+        "según el humor del día, y la última vez que hablaste todo sonaba "
+        "raro, apurado. Te calzás las zapatillas: hoy vas a tratar de "
+        "averiguar algo más."
+    ),
+    opciones=(
+        Opcion(texto="Salir para el barrio a preguntar y buscar noticias", destino="esquina_barrio"),
+    ),
+    destino_libre="esquina_barrio",
+    capitulo=1,
+))
+
+_registrar(Nodo(
+    id="inicio_negocio",
+    ubicacion="Tu casa, temprano a la mañana",
+    narracion=(
+        "Antes de salir mirás una vez más los números del changuito: si esto "
+        "sigue así, no llegás a fin de mes. El negocio que tanto costó "
+        "levantar pende de un hilo, igual que todo lo demás en este país "
+        "esta semana."
+    ),
+    opciones=(
+        Opcion(texto="Salir para el barrio a ver cómo sigue el día", destino="esquina_barrio"),
+    ),
+    destino_libre="esquina_barrio",
+    capitulo=1,
+))
+
+_registrar(Nodo(
+    id="inicio_generico",
+    ubicacion="Tu casa, temprano a la mañana",
+    narracion=(
+        "Prendés la radio mientras te tomás un mate lavado —el bueno hace "
+        "rato que no alcanza para todo el mes—. El locutor repite, cansado, "
+        "las mismas malas noticias de siempre con otras palabras. Es hora "
+        "de salir."
+    ),
+    opciones=(
+        Opcion(texto="Salir a la calle a ver cómo sigue el día", destino="esquina_barrio"),
+    ),
+    destino_libre="esquina_barrio",
+    capitulo=1,
+))
 
 
 # ---------------------------------------------------------------------------
@@ -96,14 +187,16 @@ _registrar(Nodo(
         Opcion(texto="Ir hasta el hospital de guardia si te sentís mal", destino="hospital"),
         Opcion(
             texto="Comer algo de lo que tenés en la bolsa de mercadería",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             requiere_item="bolsa de mercadería",
             items_quitar=("bolsa de mercadería",),
             salud_delta=(10, 20),
             mensaje_efecto="No es gran cosa, pero algo en el estómago cambia todo.",
         ),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
+    destino_cansancio="cacerolazo_19",
+    capitulo=1,
 ))
 
 
@@ -132,7 +225,7 @@ _registrar(Nodo(
         Opcion(texto="Acercarte al guardia de la puerta a ver si por izquierda se puede algo", destino="banco_soborno",
                requiere_item=None),
         Opcion(texto="Sumarte a la gente que empieza a golpear las rejas y putear", destino="banco_protesta"),
-        Opcion(texto="Rajar de la fila, esto no va a ningún lado", destino="esquina_barrio"),
+        Opcion(texto="Rajar de la fila, esto no va a ningún lado", destino="volver_al_hub"),
     ),
     destino_libre="banco_fila",
 ))
@@ -176,6 +269,7 @@ _registrar(Nodo(
             prob_alt=0.4,
             dinero_delta={"pesos": -20},
             reputacion_delta=-5,
+            alineacion_delta=-5,
             mensaje_efecto="El guardia se guarda los billetes en el bolsillo del chaleco sin mirarte a los ojos.",
         ),
         Opcion(texto="Arrepentirte y volver a la fila como todo el mundo", destino="banco_fila"),
@@ -196,12 +290,12 @@ _registrar(Nodo(
         "donde no era."
     ),
     opciones=(
-        Opcion(texto="Salir rápido y perderte entre la gente", destino="esquina_barrio",
+        Opcion(texto="Salir rápido y perderte entre la gente", destino="volver_al_hub",
                dinero_delta={"pesos": 60}, flags_add=("objetivo_cumplido_plata",)),
         Opcion(texto="Ir directo al club de trueque a hacer rendir esa plata", destino="club_trueque",
                dinero_delta={"pesos": 60}, flags_add=("objetivo_cumplido_plata",)),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 _registrar(Nodo(
@@ -224,7 +318,7 @@ _registrar(Nodo(
         Opcion(texto="Quedarte al frente, gritando con los demás", destino="represion"),
         Opcion(
             texto="Escabullirte antes de que esto se ponga peor",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="represion",
             prob_alt=0.3,
         ),
@@ -232,6 +326,7 @@ _registrar(Nodo(
             texto="Proponerle a la gente cercana organizarse en asamblea en vez de gritar solos",
             destino="asamblea_barrial",
             reputacion_delta=5,
+            alineacion_delta=5,
         ),
     ),
     destino_libre="represion",
@@ -261,13 +356,13 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Correr a los gritos para salvarte vos primero",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             salud_delta=(-25, -8),
             estados_add=("tos por gases",),
         ),
         Opcion(
             texto="Parar a levantar al vecino caído aunque te arriesgues",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="represion_herido",
             prob_alt=0.45,
             salud_delta=(-15, -5),
@@ -277,7 +372,7 @@ _registrar(Nodo(
         ),
         Opcion(
             texto="Plantarte de espaldas a una pared y esperar a que pase la corrida",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             salud_delta=(-35, -10),
             estados_add=("tos por gases", "agitado"),
         ),
@@ -298,12 +393,12 @@ _registrar(Nodo(
     salud_entrada=(-20, -10),
     estados_entrada=("herido en la pierna",),
     opciones=(
-        Opcion(texto="Agradecer y quedarte ahí escondido hasta que amaine", destino="esquina_barrio",
+        Opcion(texto="Agradecer y quedarte ahí escondido hasta que amaine", destino="volver_al_hub",
                reputacion_delta=3),
-        Opcion(texto="Salir igual, apenas termine la corrida, a buscar a los tuyos", destino="esquina_barrio",
+        Opcion(texto="Salir igual, apenas termine la corrida, a buscar a los tuyos", destino="volver_al_hub",
                salud_delta=(-10, -3)),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 
@@ -334,7 +429,7 @@ _registrar(Nodo(
         Opcion(texto="Preguntar si alguien sabe algo de gente perdida en algún saqueo", destino="cibercafe_noticia",
                requiere_flag=None),
         Opcion(texto="Sumarte a un corte de ruta que están organizando entre varios", destino="piquete"),
-        Opcion(texto="Retirarte, esto no es lo tuyo", destino="esquina_barrio"),
+        Opcion(texto="Retirarte, esto no es lo tuyo", destino="volver_al_hub"),
     ),
     destino_libre="asamblea_propuesta",
 ))
@@ -353,12 +448,12 @@ _registrar(Nodo(
     opciones=(
         Opcion(texto="Ir para el club de trueque a conseguir algo para aportar", destino="club_trueque",
                reputacion_delta=3),
-        Opcion(texto="Volver a tu casa a descansar, mañana es otro día largo", destino="esquina_barrio",
+        Opcion(texto="Volver a tu casa a descansar, mañana es otro día largo", destino="volver_al_hub",
                salud_delta=(5, 12)),
-        Opcion(texto="Quedarte a dormir en la placita, cuidando entre todos por si vuelve la cana", destino="calle_noche",
-               flags_add=("noche_en_asamblea",), reputacion_delta=5),
+        Opcion(texto="Quedarte a dormir en la placita, cuidando entre todos por si vuelve la cana", destino="volver_al_hub",
+               flags_add=("noche_en_asamblea",), reputacion_delta=5, alineacion_delta=4),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 
@@ -389,8 +484,9 @@ _registrar(Nodo(
         Opcion(
             texto="Preguntar bajito si alguien conoce a un reducidor para objetos... especiales",
             destino="camino_mercado_negro",
+            alineacion_delta=-5,
         ),
-        Opcion(texto="Irte, esto no te resuelve nada hoy", destino="esquina_barrio"),
+        Opcion(texto="Irte, esto no te resuelve nada hoy", destino="volver_al_hub"),
     ),
     destino_libre="club_trueque_intercambio",
 ))
@@ -406,12 +502,12 @@ _registrar(Nodo(
         "la única condición es no garcar a nadie\"."
     ),
     opciones=(
-        Opcion(texto="Volver a tu barrio con la mercadería conseguida", destino="esquina_barrio",
+        Opcion(texto="Volver a tu barrio con la mercadería conseguida", destino="volver_al_hub",
                dinero_delta={"creditos_trueque": 10, "patacones": -5}, items_add=("bolsa de mercadería",)),
         Opcion(texto="Pasar por la asamblea a aportar parte de lo conseguido", destino="asamblea_barrial",
                dinero_delta={"creditos_trueque": 5}, items_add=("bolsa de mercadería",), reputacion_delta=6),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 
@@ -444,7 +540,7 @@ _registrar(Nodo(
             items_add=("encargo de Doña Rosa",),
             mensaje_efecto="Detrás de una torre de CPUs rotas, encontrás justo lo que te habían pedido.",
         ),
-        Opcion(texto="Salir, esto no te sirve de mucho ahora", destino="esquina_barrio"),
+        Opcion(texto="Salir, esto no te sirve de mucho ahora", destino="volver_al_hub"),
     ),
     destino_libre="cibercafe_noticia",
 ))
@@ -465,11 +561,11 @@ _registrar(Nodo(
             destino="saqueo_supermercado",
             flags_add=("buscando_familiar",),
         ),
-        Opcion(texto="Volver a tu barrio, es muy arriesgado ir para allá solo", destino="esquina_barrio"),
+        Opcion(texto="Volver a tu barrio, es muy arriesgado ir para allá solo", destino="volver_al_hub"),
         Opcion(texto="Ir a la asamblea a pedir ayuda para buscar", destino="asamblea_barrial",
                reputacion_delta=2),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 
@@ -505,9 +601,9 @@ _registrar(Nodo(
         ),
         Opcion(
             texto="Buscar entre la gente si reconocés a la persona que estás buscando",
-            destino="calle_noche",
+            destino="volver_al_hub",
             requiere_flag="buscando_familiar",
-            destino_alt="calle_noche",
+            destino_alt="volver_al_hub",
         ),
         Opcion(
             texto="Revolver entre los estantes tirados por si encontrás lo que te pidió la del comedor",
@@ -519,7 +615,7 @@ _registrar(Nodo(
             salud_delta=(-5, 0),
             mensaje_efecto="Entre las góndolas volcadas, encontrás justo lo que te habían encargado.",
         ),
-        Opcion(texto="Rajar de ahí, esto se puede poner muy feo", destino="esquina_barrio",
+        Opcion(texto="Rajar de ahí, esto se puede poner muy feo", destino="volver_al_hub",
                salud_delta=(-3, 0)),
     ),
     destino_libre="saqueo_participar",
@@ -538,23 +634,25 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Agarrar lo justo y necesario, y salir cuanto antes",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="persecucion",
             prob_alt=0.3,
             items_add=("bolsa de mercadería",),
             reputacion_delta=-3,
+            alineacion_delta=-8,
         ),
         Opcion(
             texto="Quedarte cargando todo lo que puedas, total ya estás adentro",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="persecucion",
             prob_alt=0.55,
             items_add=("bolsa de mercadería", "un televisor chico"),
             reputacion_delta=-10,
+            alineacion_delta=-15,
             salud_delta=(-10, 0),
         ),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 _registrar(Nodo(
@@ -571,36 +669,378 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Quedarte hasta que se calme del todo",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             salud_delta=(-15, -4),
             reputacion_delta=10,
+            alineacion_delta=12,
             flags_add=("defendiste_comercio",),
             items_add=("bolsa de mercadería",),
             mensaje_efecto="El dueño, agradecido, te arma una bolsa con algo de mercadería.",
         ),
         Opcion(
             texto="Irte apenas baja la tensión, ya hiciste lo que pudiste",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             salud_delta=(-8, -2),
             reputacion_delta=6,
+            alineacion_delta=6,
         ),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 
 # ---------------------------------------------------------------------------
-# 8. Hub nocturno (previo a los finales)
+# 8. Capítulo 2 — 19 de diciembre, la noche del cacerolazo
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="cacerolazo_19",
+    ubicacion="Tu barrio, noche del 19 de diciembre",
+    narracion=(
+        "Cadena nacional. De la Rúa aparece en la tele con la cara gris y "
+        "declara el estado de sitio. No termina de hablar cuando ya se "
+        "escucha el primer golpe de cacerola en un balcón, después otro, "
+        "después diez, después ya no se pueden contar. En minutos, medio "
+        "país está en la calle o en la ventana, golpeando lo que tenga a "
+        "mano. Nadie organizó esto. Pasó solo."
+    ),
+    imagen_en=(
+        "a spontaneous nationwide cacerolazo protest at night in a Buenos Aires "
+        "neighborhood, people banging pots and pans from balconies and windows, "
+        "December 19 2001, dramatic wide shot, streetlights"
+    ),
+    dialogos=(
+        ("Vecino del quinto piso", "¡Che, bajá con la cacerola, no te quedes mirando!"),
+    ),
+    opciones=(
+        Opcion(
+            texto="Bajar a la calle y sumarte al cacerolazo",
+            destino="amanecer_20",
+            reputacion_delta=4,
+            alineacion_delta=5,
+        ),
+        Opcion(
+            texto="Quedarte en tu casa mirando por la ventana, sin meterte",
+            destino="amanecer_20",
+        ),
+        Opcion(
+            texto="Aprovechar que la policía está desbordada para forzar la persiana de un local cerrado",
+            destino="amanecer_20",
+            destino_alt="persecucion",
+            prob_alt=RIESGO_MEDIO,
+            items_add=("bolsa de mercadería",),
+            alineacion_delta=-15,
+            reputacion_delta=-8,
+        ),
+    ),
+    destino_libre="amanecer_20",
+    capitulo=2,
+))
+
+
+# ---------------------------------------------------------------------------
+# 9. Capítulo 3 — 20 de diciembre, el día del estallido
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="amanecer_20",
+    ubicacion="Tu barrio, mañana del 20 de diciembre",
+    narracion=(
+        "Amanece distinto. La radio dice que anoche saquearon supermercados "
+        "en todo el país, que ya hay muertos en Rosario, que en Plaza de "
+        "Mayo se está juntando gente desde temprano. Hoy va a ser el peor "
+        "día. Tenés que decidir dónde parate."
+    ),
+    dialogos=(
+        ("Locutor de radio", "Se pide a la población que evite circular por el microcentro..."),
+    ),
+    opciones=(
+        Opcion(texto="Ir para el supermercado del barrio, donde dicen que hay saqueo", destino="saqueo_supermercado"),
+        Opcion(texto="Ir para Plaza de Mayo, donde se está juntando la gente", destino="plaza_de_mayo"),
+        Opcion(texto="Quedarte ayudando en el comedor del barrio", destino="comedor"),
+        Opcion(texto="Quedarte en tu casa, esperar que pase el día", destino="noticia_renuncia"),
+    ),
+    destino_libre="amanecer_20",
+    destino_cansancio="noticia_renuncia",
+    capitulo=3,
+))
+
+_registrar(Nodo(
+    id="plaza_de_mayo",
+    ubicacion="Plaza de Mayo, mediodía del 20 de diciembre",
+    narracion=(
+        "Nunca viste tanta gente junta. Se mezcla todo: familias con "
+        "banderas argentinas, militantes de organizaciones piqueteras, "
+        "oficinistas que salieron a la hora del almuerzo y ya no se fueron, "
+        "gente golpeando cacerolas al ritmo de \"que se vayan todos\". El "
+        "cordón de la policía montada rodea la Casa Rosada, tenso, esperando "
+        "una orden."
+    ),
+    imagen_en=(
+        "a massive crowd gathering at Plaza de Mayo in Buenos Aires, December 20 2001, "
+        "national flags, banging pots, mounted police forming a line near the pink "
+        "presidential palace in the background, tense atmosphere, midday"
+    ),
+    opciones=(
+        Opcion(
+            texto="Sumarte a los cánticos en la primera línea, frente a la policía",
+            destino="represion",
+            reputacion_delta=3,
+        ),
+        Opcion(
+            texto="Sumarte a un grupo que empieza a quemar gomas y armar una barricada",
+            destino="piquetero_violento_1",
+            alineacion_delta=-15,
+        ),
+        Opcion(
+            texto="Quedarte en el fondo de la plaza, mirando de lejos",
+            destino="represion",
+            destino_alt="noticia_renuncia",
+            prob_alt=0.4,
+        ),
+    ),
+    destino_libre="represion",
+    capitulo=3,
+))
+
+_registrar(Nodo(
+    id="piquetero_violento_1",
+    ubicacion="Un costado de Plaza de Mayo, entre el humo",
+    narracion=(
+        "Las gomas arden y el humo negro se mezcla con los primeros gases. "
+        "Alguien grita que la montada va a cargar. Tenés en la mano lo que "
+        "juntaste para la barricada: piedras, un palo, una botella con nafta "
+        "que te pasó un pibe sin decir una palabra."
+    ),
+    imagen_en=(
+        "burning tires and a makeshift barricade at the edge of Plaza de Mayo, Buenos "
+        "Aires December 20 2001, thick black smoke, protesters throwing stones, mounted "
+        "police charging in the background, dramatic action shot"
+    ),
+    opciones=(
+        Opcion(
+            texto="Tirar piedras y aguantar la línea con los demás",
+            destino="piquetero_violento_2",
+            destino_alt="persecucion",
+            prob_alt=0.3,
+            alineacion_delta=-10,
+            salud_delta=(-10, -2),
+        ),
+        Opcion(
+            texto="Prender la botella y tirarla contra un carro policial",
+            destino="piquetero_violento_2",
+            destino_alt="persecucion",
+            prob_alt=0.4,
+            alineacion_delta=-20,
+            flags_add=("tiraste_molotov",),
+            salud_delta=(-15, -5),
+        ),
+        Opcion(
+            texto="Rajar de ahí ahora que todavía podés",
+            destino="represion",
+        ),
+    ),
+    destino_libre="piquetero_violento_2",
+    capitulo=3,
+))
+
+_registrar(Nodo(
+    id="piquetero_violento_2",
+    ubicacion="Plaza de Mayo, la represión se pone brava",
+    narracion=(
+        "La carga se puso seria: caballos, gases, alguien cerca tuyo se cae "
+        "y no se levanta. Un policía te agarra de la campera. Tenés una "
+        "fracción de segundo para decidir qué hacer."
+    ),
+    imagen_en=(
+        "mounted police charging through tear gas at Plaza de Mayo, Buenos Aires "
+        "December 20 2001, chaotic and violent scene, protesters running and "
+        "fighting back, dramatic low angle"
+    ),
+    opciones=(
+        Opcion(
+            texto="Pegarle para zafar de su mano y perderte en el humo",
+            destino="noticia_renuncia",
+            destino_alt="persecucion",
+            prob_alt=0.45,
+            alineacion_delta=-15,
+            flags_add=("zafaste_de_la_cana",),
+            salud_delta=(-15, -5),
+        ),
+        Opcion(
+            texto="Ayudar a sacar de ahí a un compañero herido, aunque te agarren",
+            destino="noticia_renuncia",
+            destino_alt="persecucion",
+            prob_alt=0.35,
+            reputacion_delta=8,
+            alineacion_delta=-5,
+            flags_add=("salvaste_a_alguien",),
+            salud_delta=(-20, -8),
+        ),
+        Opcion(
+            texto="Resistir hasta el final, cueste lo que cueste",
+            destino="noticia_renuncia",
+            destino_alt="persecucion",
+            prob_alt=0.5,
+            alineacion_delta=-20,
+            flags_add=("resististe_hasta_el_final",),
+            salud_delta=(-30, -10),
+        ),
+    ),
+    destino_libre="persecucion",
+    capitulo=3,
+))
+
+_registrar(Nodo(
+    id="noticia_renuncia",
+    ubicacion="Gran Buenos Aires, media tarde del 20 de diciembre",
+    narracion=(
+        "Corre como reguero de pólvora, de radio en radio, de balcón en "
+        "balcón: De la Rúa renunció. Poco después, la imagen que va a "
+        "quedar grabada para siempre: un helicóptero despegando desde la "
+        "terraza de la Casa Rosada, mientras abajo la plaza sigue ardiendo. "
+        "El estado de sitio sigue vigente, pero ya nada de esto se puede "
+        "parar con un decreto."
+    ),
+    imagen_en=(
+        "a helicopter taking off from the rooftop of the pink presidential palace at dusk, "
+        "seen from a chaotic crowded plaza below still filled with smoke, Buenos Aires "
+        "December 20 2001, historic and dramatic moment"
+    ),
+    opciones=(
+        Opcion(texto="Volver para tu barrio a ver cómo sigue todo", destino="semana_presidentes_1"),
+        Opcion(texto="Quedarte un rato más viendo cómo termina el día en la calle", destino="semana_presidentes_1",
+               reputacion_delta=2),
+    ),
+    destino_libre="semana_presidentes_1",
+    capitulo=3,
+))
+
+
+# ---------------------------------------------------------------------------
+# 10. Capítulos 4-6 — La semana de los presidentes
+# ---------------------------------------------------------------------------
+
+_registrar(Nodo(
+    id="semana_presidentes_1",
+    ubicacion="Tu barrio, los días de Puerta interino",
+    narracion=(
+        "Ramón Puerta asume interino mientras el Congreso decide qué hacer. "
+        "Nadie sabe bien qué va a pasar mañana, y mucho menos la semana que "
+        "viene. La vida sigue, como puede: hay que comer, hay que curarse "
+        "las heridas de estos días, hay que ver qué hacer con lo poco que "
+        "queda."
+    ),
+    opciones=(
+        Opcion(texto="Ir al club de trueque a ver qué conseguís", destino="club_trueque"),
+        Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial"),
+        Opcion(texto="Pasar por el comedor", destino="comedor"),
+        Opcion(texto="Ir al hospital si lo necesitás", destino="hospital"),
+        Opcion(texto="Pasar por el cibercafé", destino="cibercafe"),
+        Opcion(texto="Intentar irte del Conurbano/CABA", destino="control_ruta"),
+    ),
+    destino_libre="semana_presidentes_1",
+    destino_cansancio="semana_presidentes_2",
+    capitulo=4,
+))
+
+_registrar(Nodo(
+    id="tren_cartoneros",
+    ubicacion="Andén de la estación, de noche",
+    narracion=(
+        "El tren llega tarde y va casi vacío de asientos, pero lleno de "
+        "carros y bolsones de cartón y papel amontonados entre los vagones. "
+        "Sube gente de todas las edades, familias enteras, algunos con "
+        "chicos dormidos arriba de la mercadería. Es la nueva rutina de "
+        "medio conurbano: juntar en la Capital lo que en el barrio ya no "
+        "hay, y volver de madrugada."
+    ),
+    imagen_en=(
+        "the informal cartoneros train at night in Buenos Aires, December 2001, "
+        "passengers loading large bags of cardboard and recyclables into the wagons, "
+        "tired faces, dim station lighting, documentary photojournalism framing"
+    ),
+    dialogos=(
+        ("Señora del carro", "Antes yo era administrativa, ¿sabés? Ahora junto cartón. Así estamos."),
+    ),
+    opciones=(
+        Opcion(
+            texto="Subirte a juntar cartón vos también, para hacer una moneda",
+            destino="volver_al_hub",
+            dinero_delta={"creditos_trueque": 8},
+            alineacion_delta=2,
+            flags_add=("trabajaste_de_cartonero",),
+            salud_delta=(-8, -2),
+        ),
+        Opcion(
+            texto="Ayudar a subir los bolsones de una señora mayor sin cobrar nada",
+            destino="volver_al_hub",
+            reputacion_delta=8,
+            alineacion_delta=10,
+        ),
+        Opcion(texto="Mirar desde el andén y no subir, seguir tu camino", destino="volver_al_hub"),
+    ),
+    destino_libre="volver_al_hub",
+))
+
+_registrar(Nodo(
+    id="semana_presidentes_2",
+    ubicacion="Tu barrio, la semana de Rodríguez Saá",
+    narracion=(
+        "Asume Adolfo Rodríguez Saá, elegido por la Asamblea Legislativa. En "
+        "su discurso anuncia la suspensión del pago de la deuda externa; los "
+        "diputados lo aplauden de pie. En la calle, la euforia dura poco: la "
+        "plata que no había ayer tampoco apareció hoy. A la noche, el tren "
+        "de los cartoneros pasa cada vez más lleno."
+    ),
+    opciones=(
+        Opcion(texto="Ir a la estación a ver pasar (o subirte a) el tren de los cartoneros", destino="tren_cartoneros"),
+        Opcion(texto="Ir al club de trueque", destino="club_trueque"),
+        Opcion(texto="Pasar por el comedor", destino="comedor"),
+        Opcion(texto="Ir al hospital si lo necesitás", destino="hospital"),
+        Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial"),
+    ),
+    destino_libre="semana_presidentes_2",
+    destino_cansancio="semana_presidentes_3",
+    capitulo=5,
+))
+
+_registrar(Nodo(
+    id="semana_presidentes_3",
+    ubicacion="Tu barrio, fin de año",
+    narracion=(
+        "Rodríguez Saá renuncia a los pocos días, después de piquetes y "
+        "saqueos que no dieron tregua. El 1° de enero asume Eduardo Duhalde, "
+        "elegido otra vez por la Asamblea Legislativa: el quinto presidente "
+        "en dos semanas. La convertibilidad, el uno a uno que sostuvo diez "
+        "años de vida cotidiana, tiene los días contados. Lo agudo de la "
+        "crisis empieza, por fin, a asentarse en algo parecido a una nueva "
+        "normalidad, aunque sea una normalidad rota."
+    ),
+    opciones=(
+        Opcion(texto="Ir al club de trueque", destino="club_trueque"),
+        Opcion(texto="Pasar por el comedor", destino="comedor"),
+        Opcion(texto="Ir al hospital si lo necesitás", destino="hospital"),
+        Opcion(texto="Volver a tu barrio a parar la pelota", destino="calle_noche"),
+    ),
+    destino_libre="calle_noche",
+    destino_cansancio="calle_noche",
+    capitulo=6,
+))
+
+
+# ---------------------------------------------------------------------------
+# 11. Capítulo 7 — Cierre
 # ---------------------------------------------------------------------------
 
 _registrar(Nodo(
     id="calle_noche",
-    ubicacion="Tu barrio, ya de noche",
+    ubicacion="Tu barrio, ya pasada la peor semana",
     narracion=(
-        "Cae la noche sobre un Gran Buenos Aires que no se parece en nada al de "
-        "hace una semana. A lo lejos siguen las cacerolas, más cansadas ahora, "
-        "casi un arrullo triste. Tenés que decidir qué hacer con lo que te "
-        "queda de fuerzas y de día."
+        "Cae la noche sobre un Gran Buenos Aires que no se parece en nada al "
+        "de hace dos semanas. A lo lejos siguen las cacerolas, más cansadas "
+        "ahora, casi un arrullo triste. Tenés que decidir qué hacer con lo "
+        "que te queda de fuerzas."
     ),
     salud_entrada=(-2, 1),
     opciones=(
@@ -608,13 +1048,14 @@ _registrar(Nodo(
                salud_delta=(3, 8)),
         Opcion(texto="Intentar irte del Conurbano/CABA de una vez por todas", destino="control_ruta"),
         Opcion(texto="Quedarte en la calle, con los vecinos, pase lo que pase", destino="final_decision",
-               reputacion_delta=6),
+               reputacion_delta=6, alineacion_delta=6),
         Opcion(
             texto="Acercarte a la Casa Rosada, que en medio de este quilombo quedó rarísimamente desprotegida",
             destino="casa_rosada_exterior",
         ),
     ),
     destino_libre="final_decision",
+    capitulo=7,
 ))
 
 
@@ -648,6 +1089,70 @@ _registrar(Nodo(
     ),
     es_final=True,
     final_tipo="muerte",
+))
+
+_registrar(Nodo(
+    id="final_muerte_manifestacion",
+    ubicacion="Gran Buenos Aires, diciembre de 2001",
+    narracion=(
+        "No sentís el golpe, solo el suelo. Alguien grita que llamen a una "
+        "ambulancia, pero entre el gas, la gente corriendo y las calles "
+        "cortadas, tarda demasiado en llegar. Te suben como pueden. En el "
+        "país que se está por quedar sin cinco presidentes en dos semanas, "
+        "un nombre más en la lista de esa tarde no le cambia el rumbo a "
+        "nadie. Menos a vos."
+    ),
+    imagen_en=(
+        "a somber scene of an ambulance arriving too late at a chaotic protest scene at "
+        "night, Buenos Aires December 2001, paramedics and bystanders around a fallen "
+        "person, tear gas haze, grim and quiet aftermath"
+    ),
+    es_final=True,
+    final_tipo="muerte_manifestacion",
+))
+
+_registrar(Nodo(
+    id="final_cartonero",
+    ubicacion="Andén de la estación, muchas noches después",
+    narracion=(
+        "Terminaste subiéndote al tren de los cartoneros todas las noches, "
+        "no una vez de casualidad sino como rutina. No es lo que soñabas, "
+        "ni por asomo, pero el carro se paga solo, y las bolsas de cartón "
+        "de esta semana valen más que la libreta del banco que ya nadie "
+        "mira. Sobreviviste, a tu manera: rejuntando lo que el país tira, "
+        "para no ser vos el que quede tirado."
+    ),
+    imagen_en=(
+        "a person pulling a cardboard-collecting cart (cartonero) along a dark Buenos "
+        "Aires street at dawn, December 2001, exhausted but resolute expression, city "
+        "lights in the background, documentary photojournalism framing"
+    ),
+    es_final=True,
+    final_tipo="cartonero",
+))
+
+_registrar(Nodo(
+    id="final_referente_piquetero",
+    ubicacion="Corte de ruta, meses después",
+    narracion=(
+        "Nunca decidiste convertirte en nada. Pasó solo, a fuerza de estar "
+        "en cada corte, en cada barricada, de no bajar los brazos ni "
+        "cuando la cana cargaba en serio. Ahora, cuando llegás a un piquete, "
+        "la gente te abre lugar en la primera línea sin preguntar. Hiciste "
+        "todo lo que en cualquier otro país te habría mandado preso para "
+        "siempre —quemaste gomas, tiraste una molotov, te trenzaste a "
+        "golpes con la policía— y sin embargo estás acá, parado, respetado, "
+        "libre. En el Gran Buenos Aires de esta crisis, a veces el camino "
+        "de afuera de la ley es el único que te deja de pie al final."
+    ),
+    imagen_en=(
+        "a respected grassroots protest leader (piquetero referente) standing confidently "
+        "at the front of a highway roadblock, surrounded by supporters, burnt tires in the "
+        "background, Buenos Aires conurbano months after the crisis, determined and heroic "
+        "framing despite the gritty setting"
+    ),
+    es_final=True,
+    final_tipo="referente_piquetero",
 ))
 
 _registrar(Nodo(
@@ -750,7 +1255,7 @@ _registrar(Nodo(
         Opcion(texto="Prepararte para resistir el corte pase lo que pase", destino="piquete_represion",
                reputacion_delta=4),
         Opcion(texto="Empezar a pensar por dónde vas a rajar si esto se pone feo", destino="piquete_represion"),
-        Opcion(texto="Proponer levantar el corte antes de que llegue la cana", destino="esquina_barrio",
+        Opcion(texto="Proponer levantar el corte antes de que llegue la cana", destino="volver_al_hub",
                reputacion_delta=-2),
     ),
     destino_libre="piquete_represion",
@@ -774,7 +1279,7 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Resistir en la primera línea, no vas a aflojar",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="final_represion_piquete",
             prob_alt=0.65,
             salud_delta=(-20, -8),
@@ -782,14 +1287,14 @@ _registrar(Nodo(
         ),
         Opcion(
             texto="Retirarte rápido hacia atrás, entre la desbandada",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="final_represion_piquete",
             prob_alt=0.35,
             salud_delta=(-10, -2),
         ),
         Opcion(
             texto="Quedarte a un costado filmando la represión con lo que tengas a mano",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="final_represion_piquete",
             prob_alt=0.5,
             salud_delta=(-15, -5),
@@ -818,24 +1323,26 @@ _registrar(Nodo(
         "tu casa\", te dice un gendarme, sin mirarte demasiado."
     ),
     opciones=(
-        Opcion(texto="Dar la vuelta, resignado, y volver a tu barrio", destino="esquina_barrio",
+        Opcion(texto="Dar la vuelta, resignado, y volver a tu barrio", destino="volver_al_hub",
                salud_delta=(-3, 0)),
         Opcion(
             texto="Intentar colarte campo traviesa, lejos del control",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="carcel",
             prob_alt=0.25,
             salud_delta=(-8, -2),
+            alineacion_delta=-8,
         ),
         Opcion(
             texto="Discutir con el gendarme a cargo, exigir que te dejen pasar",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="carcel",
             prob_alt=0.15,
             reputacion_delta=-3,
+            alineacion_delta=-3,
         ),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 
@@ -860,20 +1367,20 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Meterte en un zaguán abierto a esconderte",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="persecucion_acorralado",
             prob_alt=0.35,
         ),
         Opcion(
             texto="Cruzar corriendo la avenida esquivando autos",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="persecucion_acorralado",
             prob_alt=0.45,
             salud_delta=(-15, -5),
         ),
         Opcion(
             texto="Perderte entre la gente en la parada del colectivo",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="persecucion_acorralado",
             prob_alt=0.3,
         ),
@@ -894,14 +1401,14 @@ _registrar(Nodo(
         Opcion(texto="Levantar las manos y entregarte", destino="carcel"),
         Opcion(
             texto="Intentar zafar a las piñas",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="carcel",
             prob_alt=0.75,
             salud_delta=(-30, -10),
         ),
         Opcion(
             texto="Ofrecerles unos pesos para que te dejen ir",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="carcel",
             prob_alt=0.4,
             dinero_delta={"pesos": -30},
@@ -943,9 +1450,9 @@ _registrar(Nodo(
             destino_alt="carcel",
             prob_alt=0.3,
         ),
-        Opcion(texto="Retirarte, esto es una locura", destino="esquina_barrio"),
+        Opcion(texto="Retirarte, esto es una locura", destino="volver_al_hub"),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 _registrar(Nodo(
@@ -967,14 +1474,14 @@ _registrar(Nodo(
         Opcion(texto="Sentarte en el sillón, total ¿quién te va a decir algo?", destino="final_presidente"),
         Opcion(
             texto="Agarrar algún recuerdo y rajar antes de que te agarren",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="carcel",
             prob_alt=0.3,
             items_add=("un cuadro chico afanado de la Casa Rosada",),
         ),
-        Opcion(texto="Arrepentirte y salir corriendo antes de que sea peor", destino="esquina_barrio"),
+        Opcion(texto="Arrepentirte y salir corriendo antes de que sea peor", destino="volver_al_hub"),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 
@@ -1003,7 +1510,7 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Pedir que llamen a un abogado (te va a costar unos pesos)",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="carcel_audiencia",
             prob_alt=0.3,
             dinero_delta={"pesos": -60},
@@ -1012,7 +1519,7 @@ _registrar(Nodo(
         ),
         Opcion(
             texto="Intentar coimear al oficial de turno",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="carcel_audiencia",
             prob_alt=0.55,
             dinero_delta={"pesos": -30},
@@ -1036,21 +1543,21 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Declarar que fue todo un malentendido y pedir que te dejen ir",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="final_condenado",
             prob_alt=0.4,
             salud_delta=(-5, 0),
         ),
         Opcion(
             texto="Aceptar un defensor oficial y confiar en que te vaya bien",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="final_condenado",
             prob_alt=0.5,
             salud_delta=(-5, 0),
         ),
         Opcion(
             texto="Quedarte en silencio, total ya está todo dicho",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             destino_alt="final_condenado",
             prob_alt=0.6,
             salud_delta=(-5, 0),
@@ -1166,12 +1673,12 @@ _registrar(Nodo(
         ),
         Opcion(
             texto="Comer un plato de guiso, sin pedir nada a cambio",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             salud_delta=(15, 25),
         ),
-        Opcion(texto="Irte", destino="esquina_barrio"),
+        Opcion(texto="Irte", destino="volver_al_hub"),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 
@@ -1191,19 +1698,19 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Pagar una consulta privada rápida, para no esperar",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             dinero_delta={"pesos": -25},
             salud_delta=(25, 35),
             mensaje_efecto="Con unos pesos de más, todo se mueve más rápido en cualquier lado.",
         ),
         Opcion(
             texto="Esperar tu turno en la guardia pública, gratis",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             salud_delta=(8, 16),
         ),
-        Opcion(texto="Irte, no tenés tiempo para esperar", destino="esquina_barrio"),
+        Opcion(texto="Irte, no tenés tiempo para esperar", destino="volver_al_hub"),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 _registrar(Nodo(
@@ -1222,7 +1729,7 @@ _registrar(Nodo(
             destino_alt="asalto_callejero",
             prob_alt=0.2,
         ),
-        Opcion(texto="Arrepentirte y volver, esto es una locura", destino="esquina_barrio"),
+        Opcion(texto="Arrepentirte y volver, esto es una locura", destino="volver_al_hub"),
     ),
     destino_libre="mercado_negro",
 ))
@@ -1267,9 +1774,9 @@ _registrar(Nodo(
             dinero_delta={"pesos": -15},
             items_add=("bolsa de mercadería",),
         ),
-        Opcion(texto="Irte de ahí cuanto antes, este lugar te da mala espina", destino="esquina_barrio"),
+        Opcion(texto="Irte de ahí cuanto antes, este lugar te da mala espina", destino="volver_al_hub"),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 
@@ -1298,24 +1805,25 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Entregar lo que tenés encima sin discutir",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             dinero_delta={"pesos": -999, "patacones": -999, "lecops": -999},
             reputacion_delta=-1,
+            roba_item_aleatorio=True,
             mensaje_efecto="Te vacían los bolsillos y se van caminando tranquilos, como si nada.",
         ),
         Opcion(
             texto="Correr antes de que reaccionen",
-            destino="esquina_barrio",
-            destino_alt="esquina_barrio",
+            destino="volver_al_hub",
+            destino_alt="volver_al_hub",
             salud_delta=(-15, -3),
         ),
         Opcion(
             texto="Resistirte y no soltar tus cosas",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             salud_delta=(-30, -12),
         ),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 _registrar(Nodo(
@@ -1335,22 +1843,22 @@ _registrar(Nodo(
     opciones=(
         Opcion(
             texto="Dejarte llevar por la marcha hasta que puedas salir",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             salud_delta=(-5, 2),
         ),
         Opcion(
             texto="Abrirte paso a los codazos para salir cuanto antes",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             salud_delta=(-10, -2),
             reputacion_delta=-2,
         ),
         Opcion(
             texto="Aprovechar y sumarte a los cánticos, ya que estás",
-            destino="esquina_barrio",
+            destino="volver_al_hub",
             reputacion_delta=3,
         ),
     ),
-    destino_libre="esquina_barrio",
+    destino_libre="volver_al_hub",
 ))
 
 

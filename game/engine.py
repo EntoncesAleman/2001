@@ -14,34 +14,88 @@ from typing import Any, Dict, List, Optional
 from game import free_text, images, llm, story
 from game.state import Dinero, EstadoJugador, detectar_categoria_objetivo
 
-NODO_INICIAL = "esquina_barrio"
+# El primer nodo depende de qué objetivo eligió el jugador al crear el
+# personaje: la aventura puede *empezar* de formas distintas (así no hay una
+# única secuencia de números para aprenderse de memoria) pero todas
+# convergen al mismo Capítulo 1 (esquina_barrio) en 1-2 turnos.
+NODO_INICIAL_POR_CATEGORIA = {
+    "plata": "inicio_plata",
+    "familiar": "inicio_familiar",
+    "negocio": "inicio_negocio",
+    "escape": "inicio_generico",
+    "generico": "inicio_generico",
+}
 
 INVENTARIO_INICIAL = ("libreta con anotaciones", "documento de identidad")
 
-# A partir de este turno, en cualquier nodo no-final aparece una opción extra
-# para cerrar la jornada. Sin esto, un jugador que nunca elige "quedarte a
-# dormir en la asamblea" ni cae en el saqueo buscando a un familiar podría
-# quedar dando vueltas entre esquina/banco/trueque/cibercafé sin llegar
-# nunca a un final: esta opción garantiza que la partida siempre pueda
-# terminar.
-TURNO_LIMITE_CANSANCIO = 10
-OPCION_TERMINAR_JORNADA = "Ya no das más por hoy: volver a tu casa a terminar la jornada"
+# Nodo "hub" vigente según el capítulo actual de la campaña. Los nodos de
+# servicio (hospital, trueque, comedor, mercado negro, control de ruta,
+# cibercafé, asamblea, persecución, eventos ambientales...) no vuelven a un
+# nodo fijo: usan el destino sentinel "volver_al_hub", que acá se resuelve
+# al hub del capítulo en el que esté el jugador en ese momento. Así el mismo
+# nodo de servicio sirve en cualquier capítulo sin tener que duplicarlo.
+HUB_POR_CAPITULO = {
+    1: "esquina_barrio",
+    2: "esquina_barrio",
+    3: "amanecer_20",
+    4: "semana_presidentes_1",
+    5: "semana_presidentes_2",
+    6: "semana_presidentes_3",
+    7: "calle_noche",
+}
+
+# A partir de este turno, cualquier nodo "hub" (los que definen
+# `destino_cansancio` en game/story.py) ofrece una opción extra para cerrar
+# la escena y avanzar al siguiente capítulo. Sin esto, alguien podría quedar
+# dando vueltas para siempre entre banco/asamblea/trueque sin avanzar nunca
+# la historia: esta opción garantiza que la partida siempre pueda progresar.
+TURNO_LIMITE_CANSANCIO = 8
+OPCION_TERMINAR_JORNADA = "Ya no das más por ahora: seguir adelante con el día"
 
 # Eventos ambientales: viajar por el conurbano no es gratis. Cualquier vuelta
-# a la esquina del barrio (el hub principal) tiene una chance chica de
-# desviarte a un evento que no elegiste — un asalto, quedar en medio de una
-# manifestación. Nunca en el primerísimo turno (recién arrancás la partida)
-# ni dos veces seguidas (para no encadenar mala suerte sin parar).
+# a la esquina del barrio (el hub principal del Capítulo 1) tiene una chance
+# chica de desviarte a un evento que no elegiste — un asalto, quedar en
+# medio de una manifestación. Nunca en el primerísimo turno ni dos veces
+# seguidas (para no encadenar mala suerte sin parar).
 NODOS_EVENTO_AMBIENTAL = ("asalto_callejero", "atrapado_manifestacion")
 PROB_EVENTO_AMBIENTAL = 0.08
+
+# Si la salud llega a 0 estando en uno de estos nodos, el final es
+# "final_muerte_manifestacion" (una bala perdida, gases, una topadora) en vez
+# del genérico "final_muerte" — mismo mecanismo de siempre, solo cambia el
+# nodo de destino según dónde te agarró.
+NODOS_CONTEXTO_MANIFESTACION = {
+    "cacerolazo_19",
+    "plaza_de_mayo",
+    "piquetero_violento_1",
+    "piquetero_violento_2",
+    "represion",
+    "represion_herido",
+    "atrapado_manifestacion",
+    "piquete",
+    "piquete_resistencia",
+    "piquete_represion",
+}
+
+
+def _destino_muerte(estado: EstadoJugador) -> str:
+    if estado.nodo_actual in NODOS_CONTEXTO_MANIFESTACION:
+        return "final_muerte_manifestacion"
+    return "final_muerte"
 
 
 def _opcion_extra_disponible(estado: EstadoJugador, nodo) -> bool:
     return (
         not nodo.es_final
-        and nodo.id != "calle_noche"
+        and nodo.destino_cansancio is not None
         and estado.turno >= TURNO_LIMITE_CANSANCIO
     )
+
+
+def _generar_orden_opciones(nodo) -> List[int]:
+    orden = list(range(len(nodo.opciones)))
+    random.shuffle(orden)
+    return orden
 
 
 def crear_estado(nombre: str, trasfondo: str, barrio: str, objetivo: str) -> EstadoJugador:
@@ -56,34 +110,62 @@ def crear_estado(nombre: str, trasfondo: str, barrio: str, objetivo: str) -> Est
     )
     estado.inventario = list(INVENTARIO_INICIAL)
     estado.dinero = Dinero(pesos=15, patacones=20, lecops=10)
-    _entrar_nodo(estado, NODO_INICIAL)
+    nodo_inicial = NODO_INICIAL_POR_CATEGORIA.get(categoria, "inicio_generico")
+    _entrar_nodo(estado, nodo_inicial)
     return estado
 
 
 def elegir_final(estado: EstadoJugador) -> str:
-    """Decide a qué final corresponde llegar según flags/reputación acumulados."""
+    """Decide a qué final corresponde llegar según alineación/flags/reputación."""
     if not estado.vivo:
-        return "final_muerte"
+        return _destino_muerte(estado)
+
+    # El camino "referente piquetero" (ganar habiendo hecho solo cosas fuera
+    # de la ley) exige una combinación muy específica conseguida en
+    # game/story.py (piquetero_violento_1 y 2): haber tirado la molotov en
+    # el primer tramo, haber zafado de la cana o resistido hasta el final en
+    # el segundo, y que la alineación haya quedado bien negativa — no es
+    # alcanzable por casualidad ni por una sola decisión aislada.
+    if (
+        estado.tiene_flag("tiraste_molotov")
+        and (estado.tiene_flag("zafaste_de_la_cana") or estado.tiene_flag("resististe_hasta_el_final"))
+        and estado.alineacion <= -30
+    ):
+        return "final_referente_piquetero"
 
     categoria = estado.objetivo_categoria
-    if categoria == "plata" and estado.tiene_flag("objetivo_cumplido_plata"):
-        return "final_objetivo_cumplido"
-    if categoria == "familiar" and estado.tiene_flag("buscando_familiar") and estado.reputacion_barrial >= 5:
-        return "final_objetivo_cumplido"
-    if categoria == "negocio" and estado.tiene_flag("defendiste_comercio"):
+    objetivo_logrado = (
+        (categoria == "plata" and estado.tiene_flag("objetivo_cumplido_plata"))
+        or (categoria == "familiar" and estado.tiene_flag("buscando_familiar") and estado.reputacion_barrial >= 5)
+        or (categoria == "negocio" and estado.tiene_flag("defendiste_comercio"))
+    )
+    if objetivo_logrado:
         return "final_objetivo_cumplido"
 
-    if estado.reputacion_barrial >= 15:
+    plata_total = estado.dinero.pesos + estado.dinero.patacones + estado.dinero.lecops
+
+    if estado.alineacion <= -35:
+        # Camino fuera de la ley sin haber armado la combinación especial:
+        # es el que más fácil termina mal. Si encima quedaste sin un mango,
+        # terminás de cartonero; si no, sobrevivís solo, a los ponchazos.
+        if plata_total < 15 and estado.reputacion_barrial < 5:
+            return "final_cartonero"
+        return "final_solitario"
+
+    if estado.alineacion >= 35 and estado.reputacion_barrial >= 15:
         return "final_comunidad"
+
     return "final_solitario"
 
 
 def _entrar_nodo(estado: EstadoJugador, nodo_id: str) -> None:
     if nodo_id == "final_decision":
         nodo_id = elegir_final(estado)
+    if nodo_id == "volver_al_hub":
+        nodo_id = HUB_POR_CAPITULO.get(estado.capitulo, "esquina_barrio")
 
     if (
-        nodo_id == "esquina_barrio"
+        nodo_id in HUB_POR_CAPITULO.values()
         and estado.turno > 0
         and estado.nodo_actual not in NODOS_EVENTO_AMBIENTAL
         and random.random() < PROB_EVENTO_AMBIENTAL
@@ -94,6 +176,9 @@ def _entrar_nodo(estado: EstadoJugador, nodo_id: str) -> None:
     estado.nodo_actual = nodo_id
     estado.ubicacion = nodo.ubicacion
     estado.turno += 1
+    if nodo.capitulo is not None:
+        estado.capitulo = nodo.capitulo
+    estado.orden_opciones = _generar_orden_opciones(nodo) if not nodo.es_final else []
 
     if nodo.salud_entrada != (0, 0):
         estado.salud += random.randint(*nodo.salud_entrada)
@@ -109,9 +194,14 @@ def _entrar_nodo(estado: EstadoJugador, nodo_id: str) -> None:
 def vista_actual(estado: EstadoJugador) -> Dict[str, Any]:
     """Construye la vista de un turno: lo que cualquier frontend necesita mostrar."""
     nodo = story.obtener_nodo(estado.nodo_actual)
-    opciones_texto: List[str] = [op.texto for op in nodo.opciones] if not nodo.es_final else []
-    if _opcion_extra_disponible(estado, nodo):
-        opciones_texto.append(OPCION_TERMINAR_JORNADA)
+
+    if nodo.es_final:
+        opciones_texto: List[str] = []
+    else:
+        orden = estado.orden_opciones or list(range(len(nodo.opciones)))
+        opciones_texto = [nodo.opciones[i].texto for i in orden if i < len(nodo.opciones)]
+        if _opcion_extra_disponible(estado, nodo):
+            opciones_texto.append(OPCION_TERMINAR_JORNADA)
 
     return {
         "turno": estado.turno,
@@ -137,7 +227,8 @@ def vista_actual(estado: EstadoJugador) -> Dict[str, Any]:
 
 
 def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
-    """Aplica la opción táctica número `indice_humano` (1-based) y avanza la historia."""
+    """Aplica la opción táctica número `indice_humano` (1-based, en el orden
+    ya mezclado que se le mostró al jugador) y avanza la historia."""
     nodo = story.obtener_nodo(estado.nodo_actual)
 
     if nodo.es_final:
@@ -145,22 +236,23 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
         vista["mensaje_error"] = "La partida ya terminó. Empezá una nueva para seguir jugando."
         return vista
 
-    idx = indice_humano - 1
+    idx_mostrado = indice_humano - 1
     cantidad_opciones = len(nodo.opciones)
 
-    if _opcion_extra_disponible(estado, nodo) and idx == cantidad_opciones:
+    if _opcion_extra_disponible(estado, nodo) and idx_mostrado == cantidad_opciones:
         estado.salud += random.randint(-3, 3)
         estado.salud_clamp()
-        destino = "final_muerte" if not estado.vivo else "calle_noche"
+        destino = _destino_muerte(estado) if not estado.vivo else nodo.destino_cansancio
         _entrar_nodo(estado, destino)
         return vista_actual(estado)
 
-    if idx < 0 or idx >= cantidad_opciones:
+    orden = estado.orden_opciones or list(range(cantidad_opciones))
+    if idx_mostrado < 0 or idx_mostrado >= len(orden):
         vista = vista_actual(estado)
         vista["mensaje_error"] = "Esa opción no existe. Elegí un número de la lista o escribí una acción libre."
         return vista
 
-    opcion = nodo.opciones[idx]
+    opcion = nodo.opciones[orden[idx_mostrado]]
 
     if opcion.requiere_flag and not estado.tiene_flag(opcion.requiere_flag):
         vista = vista_actual(estado)
@@ -178,6 +270,7 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
     if opcion.salud_delta != (0, 0):
         estado.salud += random.randint(*opcion.salud_delta)
     estado.reputacion_barrial += opcion.reputacion_delta
+    estado.alineacion = max(-100, min(100, estado.alineacion + opcion.alineacion_delta))
     estado.dinero.aplicar(opcion.dinero_delta)
     estado.flags.update(opcion.flags_add)
     for f in opcion.flags_quitar:
@@ -189,10 +282,17 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
     estado.estados.update(opcion.estados_add)
     for e in opcion.estados_quitar:
         estado.estados.discard(e)
+
+    mensaje_robo = ""
+    if opcion.roba_item_aleatorio and estado.inventario:
+        item_robado = random.choice(estado.inventario)
+        estado.quitar_item(item_robado)
+        mensaje_robo = f" Te afanaron algo en el quilombo: {item_robado}."
+
     estado.salud_clamp()
 
     if not estado.vivo:
-        destino = "final_muerte"
+        destino = _destino_muerte(estado)
     elif opcion.destino_alt and random.random() < opcion.prob_alt:
         destino = opcion.destino_alt
     else:
@@ -200,8 +300,8 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
 
     _entrar_nodo(estado, destino)
     vista = vista_actual(estado)
-    if opcion.mensaje_efecto:
-        vista["mensaje_efecto"] = opcion.mensaje_efecto
+    if opcion.mensaje_efecto or mensaje_robo:
+        vista["mensaje_efecto"] = (opcion.mensaje_efecto + mensaje_robo).strip()
 
     if llm.modelo_configurado():
         nodo_nuevo = story.obtener_nodo(estado.nodo_actual)
@@ -248,7 +348,7 @@ def _describir_resolucion_para_llm(resolucion: free_text.Resolucion) -> str:
 
 
 def accion_libre(estado: EstadoJugador, texto_jugador: str) -> Dict[str, Any]:
-    """Procesa la opción "escribí tu propia acción" (opción 4)."""
+    """Procesa la opción "escribí tu propia acción"."""
     nodo = story.obtener_nodo(estado.nodo_actual)
 
     if nodo.es_final:
@@ -275,7 +375,7 @@ def accion_libre(estado: EstadoJugador, texto_jugador: str) -> Dict[str, Any]:
     ubicacion_previa = nodo.ubicacion
 
     if not estado.vivo:
-        destino = "final_muerte"
+        destino = _destino_muerte(estado)
     else:
         destino = nodo.destino_libre or estado.nodo_actual
 

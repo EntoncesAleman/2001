@@ -86,9 +86,29 @@ class EstadoJugador:
     flags: Set[str] = field(default_factory=set)
     reputacion_barrial: int = 0
 
+    # Eje "legal / ilegal" (-100..100): negativo = camino fuera de la ley,
+    # positivo = dentro de la ley, cerca de 0 = ambivalente. Es independiente
+    # de reputacion_barrial (podés tener buena onda con el barrio y aun así
+    # estar metido en quilombos ilegales, o ser un modelo de ciudadano
+    # antipático con nadie).
+    alineacion: int = 0
+
+    # Capítulo actual de la campaña (1 = días previos ... 7 = cierre). Lo
+    # actualiza game/engine.py al entrar a un nodo que define `capitulo`;
+    # sirve para que los nodos de servicio (hospital, trueque, etc.) sepan a
+    # qué hub volver sin tener que duplicarse por capítulo.
+    capitulo: int = 1
+
     turno: int = 0
     vivo: bool = True
     ultima_imagen_url: str = ""
+
+    # Orden en el que se muestran las opciones del nodo actual (una
+    # permutación de índices sobre game/story.py:Nodo.opciones). Se
+    # recalcula cada vez que se entra a un nodo nuevo (game/engine.py) para
+    # que aprenderse "1, 3, 2" de memoria no sirva de nada en la próxima
+    # partida ni en una segunda vuelta por el mismo nodo.
+    orden_opciones: List[int] = field(default_factory=list)
 
     # --- Solo se usan en modo "libre" (game/modo_libre.py) -----------------
     # En modo "historia" la fuente de verdad es el grafo de game/story.py
@@ -156,9 +176,12 @@ class EstadoJugador:
             "dinero": self.dinero.to_dict(),
             "flags": sorted(self.flags),
             "reputacion_barrial": self.reputacion_barrial,
+            "alineacion": self.alineacion,
+            "capitulo": self.capitulo,
             "turno": self.turno,
             "vivo": self.vivo,
             "ultima_imagen_url": self.ultima_imagen_url,
+            "orden_opciones": list(self.orden_opciones),
             "modo": self.modo,
             "escena_libre": self.escena_libre,
             "dialogos_libres": [list(d) for d in self.dialogos_libres],
@@ -185,9 +208,12 @@ class EstadoJugador:
         estado.dinero = Dinero.from_dict(datos.get("dinero", {}))
         estado.flags = set(datos.get("flags", []))
         estado.reputacion_barrial = datos.get("reputacion_barrial", 0)
+        estado.alineacion = datos.get("alineacion", 0)
+        estado.capitulo = datos.get("capitulo", 1)
         estado.turno = datos.get("turno", 0)
         estado.vivo = datos.get("vivo", True)
         estado.ultima_imagen_url = datos.get("ultima_imagen_url", "")
+        estado.orden_opciones = list(datos.get("orden_opciones", []))
         estado.modo = datos.get("modo", "historia")
         estado.escena_libre = datos.get("escena_libre", "")
         estado.dialogos_libres = [tuple(d) for d in datos.get("dialogos_libres", [])]

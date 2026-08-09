@@ -126,6 +126,9 @@ const ETIQUETAS_FINAL = {
   solitario: "🚪 FIN — SOBREVIVISTE, SOLO",
   condenado: "🚔 FIN — TE DICTARON LA PRISIÓN PREVENTIVA",
   represion_derrota: "🪧 FIN — REPRIMIERON EL PIQUETE",
+  muerte_manifestacion: "🚑 FIN — NO SOBREVIVISTE (te agarró en la calle)",
+  cartonero: "🛒 FIN — TERMINASTE DE CARTONERO",
+  referente_piquetero: "✊ FIN — TE CONVERTISTE EN REFERENTE PIQUETERO",
   presidente: "🎖️  FIN — TERMINASTE SIENDO PRESIDENTE",
 };
 

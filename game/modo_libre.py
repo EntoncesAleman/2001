@@ -29,6 +29,24 @@ MAX_LARGO_RESUMEN = 320
 
 INVENTARIO_INICIAL = ("libreta con anotaciones", "documento de identidad")
 
+# Mismo vocabulario de finales que game/story.py (ver game/engine.py). Si el
+# LLM devuelve cualquier otra cosa en "final_tipo", se cae a "solitario" en
+# vez de mostrarle al jugador un final_tipo inventado que ningún frontend
+# sabe traducir a una etiqueta.
+FINALES_VALIDOS = {
+    "objetivo_cumplido",
+    "comunidad",
+    "solitario",
+    "condenado",
+    "muerte",
+    "muerte_manifestacion",
+    "cartonero",
+    "referente_piquetero",
+    "presidente",
+}
+
+CAPITULO_MINIMO_PARA_TERMINAR = 7
+
 
 def _resumen(texto: str) -> str:
     texto = (texto or "").strip()
@@ -39,9 +57,12 @@ def _resumen(texto: str) -> str:
 
 def _estado_resumen(estado: EstadoJugador) -> str:
     return (
+        f"Capítulo actual: {estado.capitulo} de 7. "
         f"Ubicación: {estado.ubicacion}. Salud: {estado.descripcion_salud()}. "
         f"Inventario y plata: {estado.descripcion_inventario()}. "
-        f"Reputación barrial: {estado.reputacion_barrial}."
+        f"Reputación barrial: {estado.reputacion_barrial}. "
+        f"Alineación legal/ilegal: {estado.alineacion} (negativo = viene actuando fuera "
+        f"de la ley, positivo = dentro de la ley, cerca de 0 = ambivalente)."
     )
 
 
@@ -87,6 +108,22 @@ def _aplicar_respuesta(estado: EstadoJugador, respuesta: Dict[str, Any]) -> None
         reputacion_delta = 0
     estado.reputacion_barrial += max(-20, min(20, reputacion_delta))
 
+    try:
+        alineacion_delta = int(respuesta.get("alineacion_delta") or 0)
+    except (TypeError, ValueError):
+        alineacion_delta = 0
+    estado.alineacion = max(-100, min(100, estado.alineacion + max(-25, min(25, alineacion_delta))))
+
+    try:
+        capitulo_reportado = int(respuesta.get("capitulo") or estado.capitulo)
+    except (TypeError, ValueError):
+        capitulo_reportado = estado.capitulo
+    # Nunca retrocede ni salta capítulos de a más de uno: es la red de
+    # contención para que el LLM no se dé cuenta la mitad de la campaña ni
+    # se quede dando vueltas en el capítulo 1 para siempre.
+    estado.capitulo = max(estado.capitulo, min(capitulo_reportado, estado.capitulo + 1))
+    estado.capitulo = max(1, min(7, estado.capitulo))
+
     estado.salud_clamp()
 
     estado.escena_libre = str(respuesta.get("narracion") or "").strip() or "..."
@@ -111,9 +148,17 @@ def _aplicar_respuesta(estado: EstadoJugador, respuesta: Dict[str, Any]) -> None
     es_final = bool(respuesta.get("es_final"))
     if not estado.vivo:
         es_final = True
-        estado.final_tipo_libre = "muerte"
+        final_tipo = "muerte_manifestacion" if estado.capitulo in (2, 3) else "muerte"
+        estado.final_tipo_libre = final_tipo
+    elif es_final and estado.capitulo < CAPITULO_MINIMO_PARA_TERMINAR:
+        # Regla inquebrantable: no se puede terminar la partida antes de
+        # llegar al cierre (capítulo 7), salvo que el personaje haya muerto
+        # (ya cubierto arriba). Si el LLM intenta cortar antes de tiempo, se
+        # ignora ese "es_final" y la historia sigue.
+        es_final = False
     elif es_final:
-        estado.final_tipo_libre = (str(respuesta.get("final_tipo") or "").strip() or "fin")[:60]
+        final_tipo_reportado = str(respuesta.get("final_tipo") or "").strip()
+        estado.final_tipo_libre = final_tipo_reportado if final_tipo_reportado in FINALES_VALIDOS else "solitario"
 
     estado.opciones_libres = [] if es_final else opciones
     estado.es_final_libre = es_final
