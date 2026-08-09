@@ -86,8 +86,7 @@ function tipearTexto(elemento, texto) {
 
 const pantallaIntro = document.getElementById("pantalla-intro");
 const introCapaCalle = document.getElementById("intro-capa-calle");
-const introCapaExplosion = document.getElementById("intro-capa-explosion");
-const introCapaAereo = document.getElementById("intro-capa-aereo");
+const introCapaHelicoptero = document.getElementById("intro-capa-helicoptero");
 const introCargando = document.getElementById("intro-cargando");
 const btnSaltarIntro = document.getElementById("btn-saltar-intro");
 const introMusica = document.getElementById("intro-musica");
@@ -193,7 +192,7 @@ btnModoLibre.addEventListener("click", () => {
 
 // --- Cutscene de apertura ---------------------------------------------
 // Tiene que coincidir con var(--duracion-intro) de static/style.css.
-const DURACION_INTRO_MS = 6500;
+const DURACION_INTRO_MS = 5500;
 let introTimeoutId = null;
 
 function prefiereMovimientoReducido() {
@@ -306,7 +305,7 @@ async function reproducirIntro() {
   // directo al menú en vez de dejar al jugador esperando indefinidamente.
   try {
     await esperarConTimeout(
-      precargarSecuencial([frames.calle, frames.explosion, frames.aereo]),
+      precargarSecuencial([frames.calle, frames.helicoptero]),
       45000,
     );
   } catch (err) {
@@ -317,8 +316,7 @@ async function reproducirIntro() {
   }
 
   introCapaCalle.style.backgroundImage = `url("${frames.calle}")`;
-  introCapaExplosion.style.backgroundImage = `url("${frames.explosion}")`;
-  introCapaAereo.style.backgroundImage = `url("${frames.aereo}")`;
+  introCapaHelicoptero.style.backgroundImage = `url("${frames.helicoptero}")`;
   introCargando.hidden = true;
 
   // Forzar reflow para que el navegador registre el estado inicial antes de

@@ -68,11 +68,18 @@ def api_modo_disponible():
     return jsonify({"libre_disponible": llm.modelo_configurado()})
 
 
-# Fotogramas fijos de la cutscene de apertura (estilo "intro de recreativo",
-# tipo Street Fighter II: caos en la calle -> explosión -> plano aéreo con
-# helicóptero yéndose -> fundido a negro -> menú). Usan la misma función y
-# el mismo estilo visual (`images.build_pollinations_url`) que el resto del
-# juego, con seeds fijas para que la escena no cambie en cada carga.
+# Fotogramas fijos de la cutscene de apertura: dos imágenes estáticas con
+# paneo/zoom de cámara (estilo intro de recreativo) — la calle en caos frente
+# a la Casa Rosada, corte directo al helicóptero presidencial alejándose.
+# Usan el mismo estilo visual (`images.build_pollinations_url`) que el resto
+# del juego, con seeds fijas para que la escena no cambie en cada carga.
+#
+# Nota: el modelo de Pollinations no logra combinar "helicóptero" + "Casa
+# Rosada" en una sola imagen de forma confiable (probado con varias
+# variantes: o sale el palacio sin helicóptero, o el helicóptero sin
+# palacio) — separarlos en dos tomas y dejar que el corte narrativo conecte
+# ambas (como en cualquier edición de cine) da mejor resultado que forzarlos
+# juntos.
 @app.route("/api/intro")
 def api_intro():
     # Nota: "Casa Rosada" como nombre propio no lo reconoce bien el modelo de
@@ -86,17 +93,11 @@ def api_intro():
             "smoke, cacerolazo protesters banging pots, dramatic wide establishing shot",
             ancho=960, alto=540, seed=555,
         ),
-        "explosion": images.build_pollinations_url(
-            "a riot barricade exploding into a bright orange fireball with flying debris "
-            "at night, crowd running away in panic, the same pink colonial palace with a "
-            "dome in the background, intense violent action moment",
-            ancho=960, alto=540, seed=555,
-        ),
-        "aereo": images.build_pollinations_url(
-            "high aerial view from a helicopter flying over a burning city plaza at night, "
-            "riot crowd below, the pink colonial palace with its dome glowing under the "
-            "fires, smoke rising, dramatic wide shot from above",
-            ancho=960, alto=540, seed=555,
+        "helicoptero": images.build_pollinations_url(
+            "dramatic night shot of a helicopter with motion-blurred spinning rotor blades "
+            "flying away, large and prominent in frame, the city below covered in smoke "
+            "with an orange fire glow on the horizon, cinematic",
+            ancho=960, alto=540, seed=321,
         ),
     })
 
