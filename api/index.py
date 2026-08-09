@@ -1,4 +1,4 @@
-"""App web (Flask) de "Argentina 2001".
+"""App web (Flask) de "2001: Odisea en Buenos Aires".
 
 Reutiliza exactamente el mismo `game/engine.py` que usa `main.py` (CLI): acá
 solo se traduce esa API a rutas HTTP con estado guardado en la cookie de

@@ -1,4 +1,4 @@
-// Frontend de "Argentina 2001". Sin frameworks: fetch() liso y actualización
+// Frontend de "2001: Odisea en Buenos Aires". Sin frameworks: fetch() liso y actualización
 // directa del DOM. Todo el estado real vive en el servidor (sesión Flask);
 // acá solo pintamos lo que /api/* devuelve.
 
@@ -130,6 +130,7 @@ const ETIQUETAS_FINAL = {
   cartonero: "🛒 FIN — TERMINASTE DE CARTONERO",
   referente_piquetero: "✊ FIN — TE CONVERTISTE EN REFERENTE PIQUETERO",
   presidente: "🎖️  FIN — TERMINASTE SIENDO PRESIDENTE",
+  perdido: "💊 FIN — TE PERDISTE EN EL CONSUMO",
 };
 
 async function apiPost(url, body) {

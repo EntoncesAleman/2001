@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Argentina 2001 — RPG textual de supervivencia. Frontend de terminal.
+"""2001: Odisea en Buenos Aires — RPG textual de supervivencia. Frontend de terminal.
 
 Ejecutar con:  python3 main.py
 Ver README.md para instalar dependencias y para la variante web (Flask/Vercel).
@@ -37,7 +37,7 @@ def mostrar_titulo() -> None:
     console.print(
         Panel(
             Text(
-                "ARGENTINA 2001\nSupervivencia en el Gran Buenos Aires",
+                "2001: ODISEA EN BUENOS AIRES\nSupervivencia en el Gran Buenos Aires",
                 justify="center",
                 style="bold white on dark_blue",
             ),
@@ -136,6 +136,7 @@ def mostrar_vista(vista: dict) -> None:
             "cartonero": "🛒 FIN — TERMINASTE DE CARTONERO",
             "referente_piquetero": "✊ FIN — TE CONVERTISTE EN REFERENTE PIQUETERO",
             "presidente": "🎖️  FIN — TERMINASTE SIENDO PRESIDENTE",
+            "perdido": "💊 FIN — TE PERDISTE EN EL CONSUMO",
         }
         etiqueta = etiquetas.get(vista.get("final_tipo"), "FIN DE LA PARTIDA")
         console.print(Panel(etiqueta, border_style="bold red", padding=(1, 2)))

@@ -50,6 +50,11 @@ HUB_POR_CAPITULO = {
 # dando vueltas para siempre entre banco/asamblea/trueque sin avanzar nunca
 # la historia: esta opción garantiza que la partida siempre pueda progresar.
 TURNO_LIMITE_CANSANCIO = 8
+
+# Cuántos turnos puede quedar "colgado" el mandado de Doña Rosa (comedor)
+# antes de darlo por perdido: sin este límite, un jugador podría dejarlo
+# aceptado indefinidamente sin costo alguno.
+TURNO_LIMITE_COMEDOR = 6
 OPCION_TERMINAR_JORNADA = "Ya no das más por ahora: seguir adelante con el día"
 
 # Eventos ambientales: viajar por el conurbano no es gratis. Cualquier vuelta
@@ -96,6 +101,19 @@ def _generar_orden_opciones(nodo) -> List[int]:
     orden = list(range(len(nodo.opciones)))
     random.shuffle(orden)
     return orden
+
+
+def _chequear_vencimiento_comedor(estado: EstadoJugador) -> None:
+    """Si el mandado de Doña Rosa lleva demasiados turnos sin resolverse, se
+    da por perdido: no se puede dejar "colgado" para siempre sin costo."""
+    if estado.turno_mision_comedor is None:
+        return
+    if estado.turno - estado.turno_mision_comedor < TURNO_LIMITE_COMEDOR:
+        return
+    estado.flags.discard("mision_comedor_activa")
+    estado.flags.add("mision_comedor_fallida")
+    estado.reputacion_barrial -= 5
+    estado.turno_mision_comedor = None
 
 
 def crear_estado(nombre: str, trasfondo: str, barrio: str, objetivo: str) -> EstadoJugador:
@@ -179,6 +197,7 @@ def _entrar_nodo(estado: EstadoJugador, nodo_id: str) -> None:
     if nodo.capitulo is not None:
         estado.capitulo = nodo.capitulo
     estado.orden_opciones = _generar_orden_opciones(nodo) if not nodo.es_final else []
+    _chequear_vencimiento_comedor(estado)
 
     if nodo.salud_entrada != (0, 0):
         estado.salud += random.randint(*nodo.salud_entrada)
@@ -224,6 +243,47 @@ def vista_actual(estado: EstadoJugador) -> Dict[str, Any]:
         "mensaje_efecto": None,
         "mensaje_libre": None,
     }
+
+
+def _prob_efectiva(estado: EstadoJugador, opcion: "story.Opcion") -> float:
+    """Ajusta `opcion.prob_alt` según qué tiene encima o a favor el jugador en
+    el momento de elegir la opción (documento en regla, plata, mercadería
+    robada, reputación barrial), sin tener que duplicar nodos por cada
+    combinación posible. Ver el comentario sobre estos campos en story.py."""
+    prob = opcion.prob_alt
+
+    if opcion.item_favorable and estado.tiene_item(opcion.item_favorable):
+        prob -= opcion.bonus_item_favorable
+    if opcion.item_desfavorable and estado.tiene_item(opcion.item_desfavorable):
+        prob += opcion.penalizacion_item_desfavorable
+    if opcion.condicion_desfavorable and (
+        opcion.condicion_desfavorable in estado.flags
+        or opcion.condicion_desfavorable in estado.estados
+    ):
+        prob += opcion.penalizacion_condicion_desfavorable
+    if (
+        opcion.reputacion_minima_favorable is not None
+        and estado.reputacion_barrial >= opcion.reputacion_minima_favorable
+    ):
+        prob -= opcion.bonus_reputacion_favorable
+    if (
+        opcion.pesos_minimos_favorable is not None
+        and estado.dinero.pesos >= opcion.pesos_minimos_favorable
+    ):
+        prob -= opcion.bonus_pesos_favorable
+
+    return max(0.0, min(1.0, prob))
+
+
+def _bonus_salud_reputacion(estado: EstadoJugador, opcion: "story.Opcion") -> int:
+    """Si la reputación barrial alcanza el umbral de la opción (un vecino o
+    testigo interviene), suma el bonus de salud definido en la opción."""
+    if (
+        opcion.reputacion_minima_favorable is not None
+        and estado.reputacion_barrial >= opcion.reputacion_minima_favorable
+    ):
+        return opcion.bonus_salud_reputacion
+    return 0
 
 
 def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
@@ -275,6 +335,10 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
     estado.flags.update(opcion.flags_add)
     for f in opcion.flags_quitar:
         estado.flags.discard(f)
+    if "mision_comedor_activa" in opcion.flags_add:
+        estado.turno_mision_comedor = estado.turno
+    if "encargo_encontrado" in opcion.flags_add or "mision_comedor_completa" in opcion.flags_add:
+        estado.turno_mision_comedor = None
     for item in opcion.items_add:
         estado.agregar_item(item)
     for item in opcion.items_quitar:
@@ -288,12 +352,15 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
         item_robado = random.choice(estado.inventario)
         estado.quitar_item(item_robado)
         mensaje_robo = f" Te afanaron algo en el quilombo: {item_robado}."
+        if item_robado == "documento de identidad":
+            estado.flags.add("sin_documento")
 
+    estado.salud += _bonus_salud_reputacion(estado, opcion)
     estado.salud_clamp()
 
     if not estado.vivo:
         destino = _destino_muerte(estado)
-    elif opcion.destino_alt and random.random() < opcion.prob_alt:
+    elif opcion.destino_alt and random.random() < _prob_efectiva(estado, opcion):
         destino = opcion.destino_alt
     else:
         destino = opcion.destino

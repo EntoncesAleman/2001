@@ -1,4 +1,4 @@
-# Argentina 2001 — RPG textual
+# 2001: Odisea en Buenos Aires — RPG textual
 
 Juego de rol interactivo de supervivencia urbana ambientado en el Gran Buenos
 Aires y CABA durante la crisis socioeconómica de diciembre de 2001: el

@@ -43,6 +43,8 @@ FINALES_VALIDOS = {
     "cartonero",
     "referente_piquetero",
     "presidente",
+    "represion_derrota",
+    "perdido",
 }
 
 CAPITULO_MINIMO_PARA_TERMINAR = 7

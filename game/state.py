@@ -110,6 +110,12 @@ class EstadoJugador:
     # partida ni en una segunda vuelta por el mismo nodo.
     orden_opciones: List[int] = field(default_factory=list)
 
+    # Turno en el que se aceptó el mandado de Doña Rosa (comedor comunitario).
+    # None si nunca se aceptó o ya se resolvió (entregado o vencido). Sirve
+    # para que la misión no quede "colgada" para siempre — ver
+    # game/engine.py:_chequear_vencimiento_comedor.
+    turno_mision_comedor: Optional[int] = None
+
     # --- Solo se usan en modo "libre" (game/modo_libre.py) -----------------
     # En modo "historia" la fuente de verdad es el grafo de game/story.py
     # (nodo_actual); en modo "libre" no hay grafo fijo, así que la escena, las
@@ -182,6 +188,7 @@ class EstadoJugador:
             "vivo": self.vivo,
             "ultima_imagen_url": self.ultima_imagen_url,
             "orden_opciones": list(self.orden_opciones),
+            "turno_mision_comedor": self.turno_mision_comedor,
             "modo": self.modo,
             "escena_libre": self.escena_libre,
             "dialogos_libres": [list(d) for d in self.dialogos_libres],
@@ -214,6 +221,7 @@ class EstadoJugador:
         estado.vivo = datos.get("vivo", True)
         estado.ultima_imagen_url = datos.get("ultima_imagen_url", "")
         estado.orden_opciones = list(datos.get("orden_opciones", []))
+        estado.turno_mision_comedor = datos.get("turno_mision_comedor")
         estado.modo = datos.get("modo", "historia")
         estado.escena_libre = datos.get("escena_libre", "")
         estado.dialogos_libres = [tuple(d) for d in datos.get("dialogos_libres", [])]

@@ -1,4 +1,4 @@
-"""Grafo narrativo del RPG "Argentina 2001".
+"""Grafo narrativo del RPG "2001: Odisea en Buenos Aires".
 
 Cada `Nodo` es una escena. Cada `Opcion` es una acción táctica que lleva a
 otro nodo y puede tener efectos mecánicos (salud, dinero, reputación,
@@ -37,6 +37,26 @@ class Opcion:
 
     destino_alt: Optional[str] = None
     prob_alt: float = 0.0
+
+    # --- Modificadores contextuales -----------------------------------
+    # Ajustan la probabilidad efectiva de que dispare destino_alt (o, en el
+    # caso de la reputación, la salud perdida) según qué tiene encima el
+    # jugador en el momento de elegir la opción — sin tener que duplicar
+    # nodos por cada combinación posible. Ver game/engine.py:_prob_efectiva.
+    item_favorable: Optional[str] = None
+    bonus_item_favorable: float = 0.15
+    item_desfavorable: Optional[str] = None
+    penalizacion_item_desfavorable: float = 0.2
+    # Se chequea contra flags Y estados a la vez (ej: "sin_documento" es un
+    # flag; "herido en la pierna" es un estado — a los efectos de esto da lo
+    # mismo, ambos son "algo que te complica la situación").
+    condicion_desfavorable: Optional[str] = None
+    penalizacion_condicion_desfavorable: float = 0.2
+    reputacion_minima_favorable: Optional[int] = None
+    bonus_reputacion_favorable: float = 0.1
+    bonus_salud_reputacion: int = 0
+    pesos_minimos_favorable: Optional[int] = None
+    bonus_pesos_favorable: float = 0.15
 
     mensaje_efecto: str = ""
 
@@ -359,6 +379,8 @@ _registrar(Nodo(
             destino="volver_al_hub",
             salud_delta=(-25, -8),
             estados_add=("tos por gases",),
+            reputacion_minima_favorable=15,
+            bonus_salud_reputacion=10,
         ),
         Opcion(
             texto="Parar a levantar al vecino caído aunque te arriesgues",
@@ -369,12 +391,17 @@ _registrar(Nodo(
             reputacion_delta=12,
             flags_add=("ayudaste_en_represion",),
             estados_add=("tos por gases",),
+            reputacion_minima_favorable=15,
+            bonus_reputacion_favorable=0.15,
+            bonus_salud_reputacion=8,
         ),
         Opcion(
             texto="Plantarte de espaldas a una pared y esperar a que pase la corrida",
             destino="volver_al_hub",
             salud_delta=(-35, -10),
             estados_add=("tos por gases", "agitado"),
+            reputacion_minima_favorable=15,
+            bonus_salud_reputacion=12,
         ),
     ),
     destino_libre="represion_herido",
@@ -839,6 +866,10 @@ _registrar(Nodo(
             texto="Rajar de ahí ahora que todavía podés",
             destino="represion",
         ),
+        Opcion(
+            texto="Aceptar la pastilla que te ofrece un pibe \"para aguantar\"",
+            destino="efecto_sustancia_piquete",
+        ),
     ),
     destino_libre="piquetero_violento_2",
     capitulo=3,
@@ -937,6 +968,7 @@ _registrar(Nodo(
         Opcion(texto="Pasar por el comedor", destino="comedor"),
         Opcion(texto="Ir al hospital si lo necesitás", destino="hospital"),
         Opcion(texto="Pasar por el cibercafé", destino="cibercafe"),
+        Opcion(texto="Parar en el bar de la esquina a ver si se te pasa el nudo en el estómago", destino="bar_de_la_esquina"),
         Opcion(texto="Intentar irte del Conurbano/CABA", destino="control_ruta"),
     ),
     destino_libre="semana_presidentes_1",
@@ -999,6 +1031,7 @@ _registrar(Nodo(
         Opcion(texto="Pasar por el comedor", destino="comedor"),
         Opcion(texto="Ir al hospital si lo necesitás", destino="hospital"),
         Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial"),
+        Opcion(texto="Parar en el bar de la esquina un rato", destino="bar_de_la_esquina"),
     ),
     destino_libre="semana_presidentes_2",
     destino_cansancio="semana_presidentes_3",
@@ -1021,6 +1054,7 @@ _registrar(Nodo(
         Opcion(texto="Ir al club de trueque", destino="club_trueque"),
         Opcion(texto="Pasar por el comedor", destino="comedor"),
         Opcion(texto="Ir al hospital si lo necesitás", destino="hospital"),
+        Opcion(texto="Parar en el bar de la esquina antes de volver", destino="bar_de_la_esquina"),
         Opcion(texto="Volver a tu barrio a parar la pelota", destino="calle_noche"),
     ),
     destino_libre="calle_noche",
@@ -1194,6 +1228,27 @@ _registrar(Nodo(
 ))
 
 _registrar(Nodo(
+    id="final_perdido",
+    ubicacion="Un lugar que ya no reconocés bien",
+    narracion=(
+        "En algún momento de estas semanas dejaste de volver. Lo que empezó "
+        "como una forma de aguantar la angustia —una petaca, un porro, una "
+        "pastilla para no sentir tanto— se convirtió en el único lugar donde "
+        "las cosas no dolían tanto. El objetivo que te trajo hasta acá, la "
+        "familia, el negocio, la plata del banco, se te fue desdibujando "
+        "hasta quedar lejísimos. El país sigue su curso allá afuera, con o "
+        "sin vos prestando atención."
+    ),
+    imagen_en=(
+        "a person sitting alone in a dim room surrounded by empty bottles, lost in a haze, "
+        "Buenos Aires December 2001, muted and melancholic lighting, respectful and "
+        "non-graphic depiction of addiction and despair"
+    ),
+    es_final=True,
+    final_tipo="perdido",
+))
+
+_registrar(Nodo(
     id="final_solitario",
     ubicacion="Tu casa, de madrugada",
     narracion=(
@@ -1284,6 +1339,9 @@ _registrar(Nodo(
             prob_alt=0.65,
             salud_delta=(-20, -8),
             estados_add=("tos por gases",),
+            reputacion_minima_favorable=15,
+            bonus_reputacion_favorable=0.1,
+            bonus_salud_reputacion=8,
         ),
         Opcion(
             texto="Retirarte rápido hacia atrás, entre la desbandada",
@@ -1291,6 +1349,9 @@ _registrar(Nodo(
             destino_alt="final_represion_piquete",
             prob_alt=0.35,
             salud_delta=(-10, -2),
+            reputacion_minima_favorable=15,
+            bonus_reputacion_favorable=0.1,
+            bonus_salud_reputacion=6,
         ),
         Opcion(
             texto="Quedarte a un costado filmando la represión con lo que tengas a mano",
@@ -1299,6 +1360,9 @@ _registrar(Nodo(
             prob_alt=0.5,
             salud_delta=(-15, -5),
             reputacion_delta=5,
+            reputacion_minima_favorable=15,
+            bonus_reputacion_favorable=0.1,
+            bonus_salud_reputacion=8,
         ),
     ),
     destino_libre="final_represion_piquete",
@@ -1332,6 +1396,8 @@ _registrar(Nodo(
             prob_alt=0.25,
             salud_delta=(-8, -2),
             alineacion_delta=-8,
+            item_desfavorable="un televisor chico",
+            penalizacion_item_desfavorable=0.25,
         ),
         Opcion(
             texto="Discutir con el gendarme a cargo, exigir que te dejen pasar",
@@ -1340,6 +1406,10 @@ _registrar(Nodo(
             prob_alt=0.15,
             reputacion_delta=-3,
             alineacion_delta=-3,
+            item_favorable="documento de identidad",
+            bonus_item_favorable=0.1,
+            condicion_desfavorable="sin_documento",
+            penalizacion_condicion_desfavorable=0.2,
         ),
     ),
     destino_libre="volver_al_hub",
@@ -1405,6 +1475,8 @@ _registrar(Nodo(
             destino_alt="carcel",
             prob_alt=0.75,
             salud_delta=(-30, -10),
+            item_desfavorable="un televisor chico",
+            penalizacion_item_desfavorable=0.15,
         ),
         Opcion(
             texto="Ofrecerles unos pesos para que te dejen ir",
@@ -1516,6 +1588,10 @@ _registrar(Nodo(
             dinero_delta={"pesos": -60},
             salud_delta=(-8, -2),
             mensaje_efecto="El abogado de guardia mueve un par de contactos y te saca antes de la audiencia.",
+            item_favorable="documento de identidad",
+            bonus_item_favorable=0.12,
+            condicion_desfavorable="sin_documento",
+            penalizacion_condicion_desfavorable=0.2,
         ),
         Opcion(
             texto="Intentar coimear al oficial de turno",
@@ -1525,6 +1601,10 @@ _registrar(Nodo(
             dinero_delta={"pesos": -30},
             reputacion_delta=-5,
             salud_delta=(-8, -2),
+            item_favorable="documento de identidad",
+            bonus_item_favorable=0.1,
+            condicion_desfavorable="sin_documento",
+            penalizacion_condicion_desfavorable=0.15,
         ),
         Opcion(texto="Esperar tu turno sin hacer nada, a ver qué pasa", destino="carcel_audiencia"),
     ),
@@ -1547,6 +1627,10 @@ _registrar(Nodo(
             destino_alt="final_condenado",
             prob_alt=0.4,
             salud_delta=(-5, 0),
+            item_favorable="documento de identidad",
+            bonus_item_favorable=0.15,
+            condicion_desfavorable="sin_documento",
+            penalizacion_condicion_desfavorable=0.2,
         ),
         Opcion(
             texto="Aceptar un defensor oficial y confiar en que te vaya bien",
@@ -1554,6 +1638,10 @@ _registrar(Nodo(
             destino_alt="final_condenado",
             prob_alt=0.5,
             salud_delta=(-5, 0),
+            item_favorable="documento de identidad",
+            bonus_item_favorable=0.1,
+            condicion_desfavorable="sin_documento",
+            penalizacion_condicion_desfavorable=0.15,
         ),
         Opcion(
             texto="Quedarte en silencio, total ya está todo dicho",
@@ -1561,6 +1649,10 @@ _registrar(Nodo(
             destino_alt="final_condenado",
             prob_alt=0.6,
             salud_delta=(-5, 0),
+            item_favorable="documento de identidad",
+            bonus_item_favorable=0.08,
+            condicion_desfavorable="sin_documento",
+            penalizacion_condicion_desfavorable=0.1,
         ),
     ),
     destino_libre="final_condenado",
@@ -1679,6 +1771,112 @@ _registrar(Nodo(
         Opcion(texto="Irte", destino="volver_al_hub"),
     ),
     destino_libre="volver_al_hub",
+))
+
+
+# ---------------------------------------------------------------------------
+# 15bis. Sustancias — alivio de corto plazo, con un precio
+# ---------------------------------------------------------------------------
+# `efecto_sustancia` es un nodo compartido: cualquier punto de entrada del
+# guion puede mandar acá (hoy: bar_de_la_esquina, en el camino ambivalente/
+# cartonero) y siempre ofrece la misma estructura de dos salidas —
+# recomponerte y volver a la misión, o seguir en la joda y arriesgarte a
+# terminar mal (final_perdido)—, sin necesidad de duplicar nodos por cada
+# camino que lo dispare. `efecto_sustancia_piquete` es la variante narrativa
+# para cuando la sustancia te la ofrecen en pleno piquete violento: ahí
+# "volver a la misión" te devuelve al piquete en sí (piquetero_violento_2) en
+# vez de al hub del barrio, porque la misión activa en ese momento es esa.
+
+_registrar(Nodo(
+    id="bar_de_la_esquina",
+    ubicacion="El boliche de la esquina, con la persiana a medio bajar",
+    narracion=(
+        "El bar sigue abierto, no se sabe muy bien cómo. Hay un par de "
+        "habitués tomando algo que no es exactamente café, y el dueño no te "
+        "pregunta nada cuando le señalás la botella de atrás del mostrador. "
+        "Con este quilombo, dice, ya nadie controla mucho nada."
+    ),
+    opciones=(
+        Opcion(
+            texto="Pedir una petaca de caña y tomártela de un saque",
+            destino="efecto_sustancia",
+            dinero_delta={"pesos": -5},
+            items_add=("una petaca de caña",),
+        ),
+        Opcion(
+            texto="Comprarle a un habitué un cigarrillo de marihuana",
+            destino="efecto_sustancia",
+            dinero_delta={"pesos": -10},
+            items_add=("un cigarrillo de marihuana",),
+        ),
+        Opcion(
+            texto="Pedirle al dueño una pastilla para los nervios que sabe vender bajo mano",
+            destino="efecto_sustancia",
+            dinero_delta={"pesos": -15},
+            items_add=("una pastilla para los nervios",),
+        ),
+        Opcion(texto="Tomar solo un café y seguir con lo tuyo", destino="volver_al_hub", salud_delta=(2, 6)),
+        Opcion(texto="Irte, no es momento para esto", destino="volver_al_hub"),
+    ),
+    destino_libre="volver_al_hub",
+))
+
+_registrar(Nodo(
+    id="efecto_sustancia",
+    ubicacion="Un rato después, en algún lado que ya no ubicás del todo bien",
+    narracion=(
+        "Por un rato, el quilombo de afuera se apaga. Las voces se escuchan "
+        "como de lejos, los bordes de las cosas se ponen raros. Se siente "
+        "bien, mientras dura. El problema es que, cuando empieza a bajar el "
+        "efecto, todo lo que dejaste en pausa —el objetivo, la plata, la "
+        "gente que te espera— sigue ahí, esperando que vuelvas."
+    ),
+    opciones=(
+        Opcion(
+            texto="Recomponerte como puedas y volver a lo tuyo",
+            destino="volver_al_hub",
+            salud_delta=(-10, -3),
+        ),
+        Opcion(
+            texto="Seguir en la joda un rato más, totalmente da igual",
+            destino="volver_al_hub",
+            destino_alt="final_perdido",
+            prob_alt=0.35,
+            salud_delta=(-20, -8),
+            alineacion_delta=-5,
+        ),
+    ),
+    destino_libre="volver_al_hub",
+))
+
+_registrar(Nodo(
+    id="efecto_sustancia_piquete",
+    ubicacion="En medio del piquete, con la cabeza en otro lado",
+    narracion=(
+        "El pibe te mira fijo mientras te la ofrece: \"tomá, así aguantás\". "
+        "La tomás sin pensar mucho. Por un rato el miedo desaparece del todo "
+        "—el ruido de los gases, los caballos, todo se siente lejano, casi "
+        "como si le pasara a otro—. Pero la cabeza te empieza a jugar en "
+        "contra: ya no tenés muy claro cuánto tiempo pasó, ni bien qué está "
+        "pasando alrededor tuyo."
+    ),
+    opciones=(
+        Opcion(
+            texto="Sacudirte el efecto y volver a meterte en el piquete",
+            destino="piquetero_violento_2",
+            salud_delta=(-12, -4),
+        ),
+        Opcion(
+            texto="Quedarte perdido en el humo, sin fuerzas para nada más",
+            destino="volver_al_hub",
+            destino_alt="final_perdido",
+            prob_alt=0.45,
+            salud_delta=(-25, -10),
+            alineacion_delta=-5,
+        ),
+    ),
+    destino_libre="piquetero_violento_2",
+    capitulo=3,
 ))
 
 
@@ -1810,17 +2008,23 @@ _registrar(Nodo(
             reputacion_delta=-1,
             roba_item_aleatorio=True,
             mensaje_efecto="Te vacían los bolsillos y se van caminando tranquilos, como si nada.",
+            reputacion_minima_favorable=15,
+            bonus_salud_reputacion=5,
         ),
         Opcion(
             texto="Correr antes de que reaccionen",
             destino="volver_al_hub",
             destino_alt="volver_al_hub",
             salud_delta=(-15, -3),
+            reputacion_minima_favorable=15,
+            bonus_salud_reputacion=8,
         ),
         Opcion(
             texto="Resistirte y no soltar tus cosas",
             destino="volver_al_hub",
             salud_delta=(-30, -12),
+            reputacion_minima_favorable=15,
+            bonus_salud_reputacion=15,
         ),
     ),
     destino_libre="volver_al_hub",

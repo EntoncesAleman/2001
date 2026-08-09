@@ -1,4 +1,4 @@
-"""Motor del RPG textual "Argentina 2001".
+"""Motor del RPG textual "2001: Odisea en Buenos Aires".
 
 Este paquete contiene toda la lógica del juego (estado, historia, imágenes,
 interpretación de texto libre y el motor que las conecta) sin ninguna
