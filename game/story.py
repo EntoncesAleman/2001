@@ -202,6 +202,11 @@ _registrar(Nodo(
         Opcion(texto="Ir al club de trueque a ver qué conseguís para comer", destino="club_trueque"),
         Opcion(texto="Pasar por el cibercafé a ver si hay noticias o mensajes", destino="cibercafe"),
         Opcion(texto="Ir hasta el piquete que cortó la ruta de acceso", destino="piquete"),
+        Opcion(
+            texto="Sumarte a cortar una ruta en otro barrio, con gente que no conocés de nada",
+            destino="piquete_ruta_ajena",
+            alineacion_delta=-6,
+        ),
         Opcion(texto="Agarrar tus cosas e intentar irte del Conurbano/CABA ahora mismo", destino="control_ruta"),
         Opcion(texto="Pasar por el comedor del barrio a ver si hay algo para comer", destino="comedor"),
         Opcion(texto="Ir hasta el hospital de guardia si te sentís mal", destino="hospital"),
@@ -235,6 +240,11 @@ _registrar(Nodo(
         "culpa. Un cartel de cadena dice: \"POR RAZONES DE SEGURIDAD, EXTRACCIONES "
         "LIMITADAS\". El corralito, le dicen. Tu plata está ahí adentro, blindada, "
         "y vos afuera."
+    ),
+    imagen_en=(
+        "a long line of people waiting outside a bank with metal security "
+        "shutters partially down, people carrying plastic chairs from home, a "
+        "handwritten sign about withdrawal limits, tense crowded sidewalk scene"
     ),
     dialogos=(
         ("Señor de traje", "Yo laburé treinta años para esto, pibe. Treinta años."),
@@ -445,6 +455,11 @@ _registrar(Nodo(
         "esperanza: la sensación de que, si nadie más se hace cargo, al menos "
         "se tienen entre ustedes."
     ),
+    imagen_en=(
+        "a neighborhood assembly in a small plaza at night, a circle of "
+        "mismatched chairs brought from nearby houses, a diverse group of "
+        "neighbors in animated discussion, someone taking notes in a notebook"
+    ),
     dialogos=(
         ("Vecino de la asamblea", "Acá nadie te va a solucionar la vida, pero al menos no estás solo, ¿entendés?"),
     ),
@@ -498,6 +513,11 @@ _registrar(Nodo(
         "\"a cambio de créditos\". Nadie te pide pesos ni Patacones acá: es todo "
         "créditos de trueque, o cambio directo. Una señora con delantal maneja "
         "una lista en un cuaderno como si fuera el Banco Central del barrio."
+    ),
+    imagen_en=(
+        "the inside of a bustling barter club set up in a warehouse, market "
+        "stalls with folded clothes, tools, and homemade preserves, a crowd of "
+        "neighbors trading goods, a woman with an apron keeping a ledger"
     ),
     dialogos=(
         ("Coordinadora del club", "Acá nadie te va a garcar con la cotización, che. Un crédito es un crédito."),
@@ -553,6 +573,11 @@ _registrar(Nodo(
         "un televisor viejo: Crónica TV con la placa roja, \"CAOS EN TODO EL "
         "PAÍS\", mientras suena bajito una radio con cumbia villera desde el "
         "kiosco de al lado."
+    ),
+    imagen_en=(
+        "the inside of a small internet cafe with rows of bulky CRT monitors, "
+        "a few teenagers using computers, an old television in the corner "
+        "showing a news broadcast with a red breaking-news graphic"
     ),
     opciones=(
         Opcion(texto="Revisar si hay algún mail o mensaje de gente conocida", destino="cibercafe_noticia"),
@@ -778,6 +803,11 @@ _registrar(Nodo(
         "Mayo se está juntando gente desde temprano. Hoy va a ser el peor "
         "día. Tenés que decidir dónde parate."
     ),
+    imagen_en=(
+        "a residential Buenos Aires street early in the morning after a night of "
+        "looting, a small group of neighbors gathered around a portable radio "
+        "listening to the news, distant smoke rising over the city skyline"
+    ),
     dialogos=(
         ("Locutor de radio", "Se pide a la población que evite circular por el microcentro..."),
     ),
@@ -962,6 +992,12 @@ _registrar(Nodo(
         "las heridas de estos días, hay que ver qué hacer con lo poco que "
         "queda."
     ),
+    imagen_en=(
+        "a neighborhood corner in a Buenos Aires suburb, a small group of "
+        "neighbors talking near a corner store with a handwritten sign about "
+        "accepting Patacones, ordinary daytime activity resuming cautiously "
+        "after days of chaos"
+    ),
     opciones=(
         Opcion(texto="Ir al club de trueque a ver qué conseguís", destino="club_trueque"),
         Opcion(texto="Ir a la asamblea del barrio", destino="asamblea_barrial"),
@@ -988,9 +1024,10 @@ _registrar(Nodo(
         "hay, y volver de madrugada."
     ),
     imagen_en=(
-        "the informal cartoneros train at night in Buenos Aires, December 2001, "
-        "passengers loading large bags of cardboard and recyclables into the wagons, "
-        "tired faces, dim station lighting, documentary photojournalism framing"
+        "a busy train platform at night with a crowd of Argentine people waiting "
+        "for the informal cartoneros train, a train with visible open cargo wagons "
+        "stopped at the platform, some people pushing small carts loaded with "
+        "bundles of cardboard, dim yellow station lighting, medium wide shot"
     ),
     dialogos=(
         ("Señora del carro", "Antes yo era administrativa, ¿sabés? Ahora junto cartón. Así estamos."),
@@ -1025,6 +1062,11 @@ _registrar(Nodo(
         "plata que no había ayer tampoco apareció hoy. A la noche, el tren "
         "de los cartoneros pasa cada vez más lleno."
     ),
+    imagen_en=(
+        "a neighborhood street in Buenos Aires at dusk, neighbors going about "
+        "daily errands, a small crowd gathered around a portable television in "
+        "a storefront window watching a presidential address"
+    ),
     opciones=(
         Opcion(texto="Ir a la estación a ver pasar (o subirte a) el tren de los cartoneros", destino="tren_cartoneros"),
         Opcion(texto="Ir al club de trueque", destino="club_trueque"),
@@ -1049,6 +1091,11 @@ _registrar(Nodo(
         "años de vida cotidiana, tiene los días contados. Lo agudo de la "
         "crisis empieza, por fin, a asentarse en algo parecido a una nueva "
         "normalidad, aunque sea una normalidad rota."
+    ),
+    imagen_en=(
+        "a Buenos Aires neighborhood street on New Year's Eve, modest fireworks "
+        "in the distance, groups of neighbors sitting outside their houses on "
+        "the sidewalk on a warm summer night, a subdued atmosphere"
     ),
     opciones=(
         Opcion(texto="Ir al club de trueque", destino="club_trueque"),
@@ -1075,6 +1122,11 @@ _registrar(Nodo(
         "de hace dos semanas. A lo lejos siguen las cacerolas, más cansadas "
         "ahora, casi un arrullo triste. Tenés que decidir qué hacer con lo "
         "que te queda de fuerzas."
+    ),
+    imagen_en=(
+        "a quiet Buenos Aires neighborhood street late at night after weeks of "
+        "crisis, a few neighbors still sitting out on the sidewalk, a tired and "
+        "calmer mood than the chaos of prior weeks"
     ),
     salud_entrada=(-2, 1),
     opciones=(
@@ -1283,6 +1335,12 @@ _registrar(Nodo(
         "está pasando y se quedan. El humo negro de las gomas te raspa la "
         "garganta antes de que llegues."
     ),
+    imagen_en=(
+        "a highway roadblock (piquete) with burning tires, a row of protest "
+        "flags from different organizations, a crowd of picketers standing "
+        "their ground while stopped cars line up in the background, thick "
+        "black smoke"
+    ),
     dialogos=(
         ("Referente del piquete", "Acá no cortamos por joder, hermano. Cortamos porque no nos dejan otra."),
     ),
@@ -1294,6 +1352,85 @@ _registrar(Nodo(
                reputacion_delta=3),
     ),
     destino_libre="piquete_resistencia",
+))
+
+
+# ---------------------------------------------------------------------------
+# 8bis. Cortar una ruta en un barrio ajeno — sidequest de tiempo perdido
+# ---------------------------------------------------------------------------
+# A diferencia del piquete de tu propio barrio (arriba), acá no conocés a
+# nadie ni tenés ningún arraigo: es un movimiento más al voleo, más "camino
+# malo" por elección pura. El riesgo no es principalmente la salud o la
+# cárcel (aunque también puede pasar), sino el TIEMPO: con 70% de
+# probabilidad la vuelta se complica y perdés un día entero, saltando de
+# golpe al día del estallido (capítulo 3) sin pasar por el resto del
+# capítulo 1 ni por el cacerolazo del capítulo 2 — lo que puede dejarte sin
+# margen para conseguir objetivos que solo estaban disponibles antes (por
+# ejemplo, el trámite del banco).
+
+_registrar(Nodo(
+    id="piquete_ruta_ajena",
+    ubicacion="Ruta de acceso a otro barrio, lejos de tu zona",
+    narracion=(
+        "Te subiste a un colectivo y cruzaste medio conurbano para sumarte a "
+        "un corte del que te enteraste por un conocido de un conocido. Acá no "
+        "te conoce nadie: ni los referentes, ni los vecinos, ni la policía que "
+        "eventualmente va a venir. Es otra cosa, más cruda, sin la contención "
+        "de tu propio barrio."
+    ),
+    imagen_en=(
+        "a highway roadblock far from home at dusk, an unfamiliar crowd of "
+        "picketers from a neighborhood the viewer does not recognize, burning "
+        "tires, tense atmosphere, a person standing awkwardly at the edge of "
+        "the crowd not quite belonging"
+    ),
+    opciones=(
+        Opcion(
+            texto="Quedarte hasta el final, pase lo que pase",
+            destino="volver_al_hub",
+            destino_alt="piquete_ruta_ajena_mal",
+            prob_alt=0.7,
+            alineacion_delta=-10,
+            salud_delta=(-10, -3),
+            flags_add=("corte_ruta_ajena",),
+            mensaje_efecto="Aguantás el corte hasta que se disuelve solo, de puro cansancio colectivo.",
+        ),
+        Opcion(
+            texto="Arrepentirte a mitad de camino y volver antes de que oscurezca",
+            destino="volver_al_hub",
+            alineacion_delta=-3,
+        ),
+    ),
+    destino_libre="volver_al_hub",
+))
+
+_registrar(Nodo(
+    id="piquete_ruta_ajena_mal",
+    ubicacion="Muy lejos de tu casa, bastante después de lo planeado",
+    narracion=(
+        "Se complicó todo: primero un amague de represión que te hizo correr "
+        "en la dirección equivocada, después no había forma de volver con los "
+        "cortes y los colectivos parados en toda la zona. Terminás durmiendo "
+        "en la casa de alguien que conociste esa misma tarde, y quemás un día "
+        "entero de tu vida en esto que ni siquiera era tu pelea. Volvés al día "
+        "siguiente, tarde, con la sensación de haber perdido un tiempo que no "
+        "te sobraba."
+    ),
+    imagen_en=(
+        "a person walking alone at dawn along an unfamiliar highway shoulder, "
+        "exhausted, far from home, the previous night's chaos left behind"
+    ),
+    opciones=(
+        Opcion(
+            texto="Volver como puedas a tu barrio y seguir adelante",
+            destino="amanecer_20",
+            salud_delta=(-15, -5),
+            reputacion_delta=-3,
+            alineacion_delta=-8,
+            flags_add=("perdiste_un_dia",),
+        ),
+    ),
+    destino_libre="amanecer_20",
 ))
 
 _registrar(Nodo(
@@ -1386,9 +1523,21 @@ _registrar(Nodo(
         "Conurbano sin pase esta noche. \"Con la que está armada, quedate en "
         "tu casa\", te dice un gendarme, sin mirarte demasiado."
     ),
+    imagen_en=(
+        "a long line of cars stopped at a highway toll checkpoint at night, "
+        "gendarmerie officers checking documents and trunks one by one, road "
+        "flares and roadblock signs, tense atmosphere"
+    ),
     opciones=(
-        Opcion(texto="Dar la vuelta, resignado, y volver a tu barrio", destino="volver_al_hub",
-               salud_delta=(-3, 0)),
+        Opcion(
+            texto="Dar la vuelta, resignado, y volver a tu barrio",
+            destino="volver_al_hub",
+            salud_delta=(-3, 0),
+            mensaje_efecto=(
+                "No hay forma de cruzar esta noche: perdés el viaje entero de vuelta, "
+                "cansado, y el día sigue corriendo igual mientras tanto."
+            ),
+        ),
         Opcion(
             texto="Intentar colarte campo traviesa, lejos del control",
             destino="volver_al_hub",
@@ -1740,6 +1889,11 @@ _registrar(Nodo(
             "que se me perdió, y con este quilombo no puedo ir yo a buscarlo.",
         ),
     ),
+    imagen_en=(
+        "the inside of a community soup kitchen set up in a former factory "
+        "hall, large cooking pots, long tables full of children and adults "
+        "eating, a busy volunteer woman serving food"
+    ),
     opciones=(
         Opcion(
             texto="Ofrecerte a hacerle el mandado que necesite",
@@ -1795,6 +1949,11 @@ _registrar(Nodo(
         "habitués tomando algo que no es exactamente café, y el dueño no te "
         "pregunta nada cuando le señalás la botella de atrás del mostrador. "
         "Con este quilombo, dice, ya nadie controla mucho nada."
+    ),
+    imagen_en=(
+        "the inside of a small corner bar with a half-lowered metal shutter, a "
+        "couple of regular patrons drinking at the counter, dim warm lighting, "
+        "a bored bartender behind the bar"
     ),
     opciones=(
         Opcion(
@@ -1892,6 +2051,11 @@ _registrar(Nodo(
         "piso, un pibe con la cabeza vendada de cualquier manera. Huele a "
         "alcohol en gel y a cansancio. Una enfermera hace lo que puede con lo "
         "que hay, que no es mucho."
+    ),
+    imagen_en=(
+        "an overcrowded public hospital emergency room at night, people sitting "
+        "on chairs and on the floor waiting, an exhausted nurse attending a "
+        "patient, fluorescent lighting"
     ),
     opciones=(
         Opcion(

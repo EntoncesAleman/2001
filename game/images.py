@@ -4,17 +4,27 @@ Se usa únicamente en los nodos "climáticos" de la historia (definidos en
 game/story.py mediante el campo `imagen_en`) y en la cutscene de apertura,
 nunca en cada turno.
 
-Historial del estilo (para quien toque esto después): la primera versión
-nombraba juegos puntuales ("Leisure Suit Larry", "King's Quest") para pedir
-pixel art retro. Probado en la práctica, esos nombres propios dominan tanto
-la composición que Pollinations devuelve escenas genéricas de fantasía sin
-relación con lo pedido (un personaje al lado de una puerta, un paisaje de
-otro planeta) sin importar la escena que se describa — validado con varias
-seeds y descripciones distintas. El estilo actual describe género y ánimo
-en vez de títulos puntuales, evita instrucciones de "texto/HUD en pantalla"
-(el modelo no puede renderizar texto real y termina dibujando un logo
-ilegible) y agrega una directiva explícita para que no genere contenido
-sexualizado.
+Historial del estilo (para quien toque esto después):
+- v1 nombraba juegos puntuales ("Leisure Suit Larry", "King's Quest") para
+  pedir pixel art retro. Esos nombres propios dominaban tanto la composición
+  que Pollinations devolvía escenas genéricas de fantasía sin relación con lo
+  pedido, sin importar la escena — descartado.
+- v2 (género en vez de títulos, sin pedir "texto/HUD en pantalla" porque el
+  modelo dibuja un logo ilegible) funcionó bien de contenido pero tendía a
+  salir con calles vacías, sin gente, y a veces con arquitectura que no se
+  parece en nada a Buenos Aires (se probó pedir "pixel art estilo VGA de
+  aventura gráfica" para darle más onda de videojuego retro, y el resultado
+  fue directamente peor: un vehículo futurista y montañas en el horizonte
+  — Buenos Aires no tiene montañas — o sea que el género "aventura gráfica"
+  hijackea la composición tanto como los títulos puntuales de v1).
+- v3 (actual): mantiene el estilo "digital painting" fotoperiodístico de v2
+  (es el que mejor mantiene el contenido pedido) pero reordena el prompt para
+  que la ESCENA vaya primero (más peso en la composición) y agrega, como
+  bloque de contenido aparte al final, anclas explícitas de fidelidad: "Buenos
+  Aires, sin montañas", gente presente siempre (nunca una escena vacía/
+  desierta), ropa de verano (diciembre en Argentina es verano, no invierno).
+  Validado bajado y mirando las imágenes reales para calle/helicóptero/tren de
+  cartoneros antes de aplicar esto a todo el juego.
 """
 
 from __future__ import annotations
@@ -28,18 +38,28 @@ ESTILO_PREFIJO = (
     "detailed illustration, documentary photojournalism framing"
 )
 ESTILO_SUFIJO = (
-    "realistic proportions, no on-screen text, no logos, no HUD, no subtitles, "
-    "fully clothed people in ordinary early-2000s Argentine street clothing, "
-    "non-sexualized, respectful serious documentary tone"
+    "set in Buenos Aires, Argentina, a flat South American city with no "
+    "mountains or hills, low-rise early-1900s buildings, corner shops with "
+    "awnings, wrought-iron balconies and period-correct Argentine cars, "
+    "populated with ordinary Argentine people going about their day (never an "
+    "empty or deserted scene), people dressed for a hot southern-hemisphere "
+    "summer night (short sleeves, light clothing, no heavy coats), realistic "
+    "proportions, no on-screen text, no logos, no HUD, no subtitles, fully "
+    "clothed people, non-sexualized, respectful serious documentary tone"
 )
 
 BASE_URL = "https://image.pollinations.ai/prompt/"
 
 
 def construir_prompt(escena_en_ingles: str) -> str:
-    """Arma el prompt final respetando exactamente el estilo pedido."""
+    """Arma el prompt final respetando exactamente el estilo pedido.
+
+    La escena va primero (así el modelo le da más peso al contenido pedido:
+    el edificio, la gente, el helicóptero) y el estilo/las anclas de fidelidad
+    van después, como contexto adicional en vez de dominar la composición.
+    """
     escena = escena_en_ingles.strip().rstrip(".")
-    return f"{ESTILO_PREFIJO}, {escena}, {ESTILO_SUFIJO}"
+    return f"{escena}, {ESTILO_PREFIJO}, {ESTILO_SUFIJO}"
 
 
 def build_pollinations_url(

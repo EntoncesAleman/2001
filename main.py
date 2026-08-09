@@ -94,6 +94,8 @@ def mostrar_panel_estado(vista: dict) -> None:
     linea = "-" * 50
     cuerpo = (
         f"{linea}\n"
+        f"🗓️  {panel.get('dia', '')}\n"
+        f"🎯 Misión: {panel.get('mision', '')}\n"
         f"📍 Ubicación: {panel['ubicacion']}\n"
         f"🎒 Inventario/Recursos: {panel['inventario']}\n"
         f"⚠️  Estado/Salud: {panel['salud']}\n"
@@ -140,8 +142,27 @@ def mostrar_vista(vista: dict) -> None:
         }
         etiqueta = etiquetas.get(vista.get("final_tipo"), "FIN DE LA PARTIDA")
         console.print(Panel(etiqueta, border_style="bold red", padding=(1, 2)))
+        mostrar_estadisticas(vista.get("estadisticas"))
     else:
         mostrar_opciones(vista["opciones"])
+
+
+def mostrar_estadisticas(stats: dict | None) -> None:
+    if not stats:
+        return
+    lineas = [
+        f"🗓️  Llegaste a: {stats['dia']}",
+        f"🧭 Camino recorrido: {stats['camino']} (alineación {stats['alineacion']:+d})",
+        f"🤝 Reputación barrial final: {stats['reputacion']}",
+        f"💰 Terminaste con: {stats['dinero_final']}",
+        f"🚶 Lugares distintos recorridos: {stats['lugares_recorridos']}",
+        f"⏱️  Turnos jugados: {stats['turnos']}",
+    ]
+    if stats["hitos"]:
+        lineas.append("")
+        lineas.append("Hitos de esta partida:")
+        lineas.extend(f"  • {hito}" for hito in stats["hitos"])
+    console.print(Panel("\n".join(lineas), title="Estadísticas de la partida", border_style="cyan", padding=(1, 2)))
 
 
 # ---------------------------------------------------------------------------

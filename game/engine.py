@@ -97,10 +97,37 @@ def _opcion_extra_disponible(estado: EstadoJugador, nodo) -> bool:
     )
 
 
-def _generar_orden_opciones(nodo) -> List[int]:
-    orden = list(range(len(nodo.opciones)))
-    random.shuffle(orden)
-    return orden
+# Cuántas opciones tácticas se muestran como máximo por escena. Varios hubs
+# (esquina_barrio, semana_presidentes_1/2) definen muchas más ubicaciones
+# posibles de las que tiene sentido mostrar todas juntas — se resuelve
+# sampleando un subconjunto distinto en cada visita, no recortando el
+# contenido de game/story.py. Ver _generar_orden_opciones.
+MAX_OPCIONES_VISIBLES = 5
+
+
+def _opciones_disponibles(estado: EstadoJugador, nodo) -> List[int]:
+    """Índices reales de las opciones que el jugador PUEDE elegir ahora mismo
+    (según requiere_flag/requiere_item/excluye_flag), no todas las definidas
+    en el nodo. Antes se mostraban todas y recién al elegir una se le avisaba
+    al jugador "no podés hacer eso" — ahora directamente no se ofrecen."""
+    disponibles = []
+    for i, opcion in enumerate(nodo.opciones):
+        if opcion.requiere_flag and not estado.tiene_flag(opcion.requiere_flag):
+            continue
+        if opcion.requiere_item and not estado.tiene_item(opcion.requiere_item):
+            continue
+        if opcion.excluye_flag and estado.tiene_flag(opcion.excluye_flag):
+            continue
+        disponibles.append(i)
+    return disponibles or list(range(len(nodo.opciones)))
+
+
+def _generar_orden_opciones(estado: EstadoJugador, nodo) -> List[int]:
+    disponibles = _opciones_disponibles(estado, nodo)
+    if len(disponibles) > MAX_OPCIONES_VISIBLES:
+        return random.sample(disponibles, MAX_OPCIONES_VISIBLES)
+    random.shuffle(disponibles)
+    return disponibles
 
 
 def _chequear_vencimiento_comedor(estado: EstadoJugador) -> None:
@@ -193,11 +220,12 @@ def _entrar_nodo(estado: EstadoJugador, nodo_id: str) -> None:
     nodo = story.obtener_nodo(nodo_id)
     estado.nodo_actual = nodo_id
     estado.ubicacion = nodo.ubicacion
+    estado.lugares_visitados.add(nodo.ubicacion)
     estado.turno += 1
     if nodo.capitulo is not None:
         estado.capitulo = nodo.capitulo
-    estado.orden_opciones = _generar_orden_opciones(nodo) if not nodo.es_final else []
     _chequear_vencimiento_comedor(estado)
+    estado.orden_opciones = _generar_orden_opciones(estado, nodo) if not nodo.es_final else []
 
     if nodo.salud_entrada != (0, 0):
         estado.salud += random.randint(*nodo.salud_entrada)
@@ -238,7 +266,10 @@ def vista_actual(estado: EstadoJugador) -> Dict[str, Any]:
             "inventario": estado.descripcion_inventario(),
             "salud": estado.descripcion_salud(),
             "dinero": estado.dinero.describir(),
+            "dia": estado.etiqueta_capitulo(),
+            "mision": estado.objetivo,
         },
+        "estadisticas": estado.generar_estadisticas() if nodo.es_final else None,
         "mensaje_error": None,
         "mensaje_efecto": None,
         "mensaje_libre": None,
@@ -297,16 +328,15 @@ def elegir_opcion(estado: EstadoJugador, indice_humano: int) -> Dict[str, Any]:
         return vista
 
     idx_mostrado = indice_humano - 1
-    cantidad_opciones = len(nodo.opciones)
+    orden = estado.orden_opciones or list(range(len(nodo.opciones)))
 
-    if _opcion_extra_disponible(estado, nodo) and idx_mostrado == cantidad_opciones:
+    if _opcion_extra_disponible(estado, nodo) and idx_mostrado == len(orden):
         estado.salud += random.randint(-3, 3)
         estado.salud_clamp()
         destino = _destino_muerte(estado) if not estado.vivo else nodo.destino_cansancio
         _entrar_nodo(estado, destino)
         return vista_actual(estado)
 
-    orden = estado.orden_opciones or list(range(cantidad_opciones))
     if idx_mostrado < 0 or idx_mostrado >= len(orden):
         vista = vista_actual(estado)
         vista["mensaje_error"] = "Esa opción no existe. Elegí un número de la lista o escribí una acción libre."

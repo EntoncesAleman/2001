@@ -6,6 +6,49 @@ from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 
+# Etiqueta legible de cada capítulo (usado como "día" en el HUD, en ambos
+# modos): le da al jugador una referencia de progreso sin exponer números de
+# nodo internos. Compartido por game/engine.py, game/modo_libre.py, main.py y
+# el frontend web.
+CAPITULO_LABEL: Dict[int, str] = {
+    1: "Días previos al estallido",
+    2: "Noche del 19 de diciembre",
+    3: "20 de diciembre — el día del estallido",
+    4: "La semana de los presidentes (Puerta)",
+    5: "La semana de los presidentes (Rodríguez Saá)",
+    6: "La semana de los presidentes (Duhalde)",
+    7: "El cierre",
+}
+CAPITULOS_TOTALES = 7
+
+# Flags/hitos narrativamente relevantes que vale la pena resumir al final de
+# la partida (pantalla de estadísticas). No es una lista exhaustiva de todos
+# los flags del juego, solo los que cuentan algo sobre CÓMO se jugó.
+HITOS_DESCRIPCION: Dict[str, str] = {
+    "ayudaste_en_represion": "Ayudaste a alguien caído en medio de una represión",
+    "defendiste_comercio": "Defendiste un comercio de un saqueo",
+    "trabajaste_de_cartonero": "Te subiste al tren de los cartoneros a juntar cartón",
+    "mision_comedor_completa": "Completaste el mandado de Doña Rosa",
+    "mision_comedor_fallida": "Dejaste colgado el mandado de Doña Rosa",
+    "tiraste_molotov": "Tiraste una bomba molotov en un piquete",
+    "zafaste_de_la_cana": "Te zafaste de la policía a las piñas",
+    "salvaste_a_alguien": "Salvaste a un compañero herido en la represión",
+    "resististe_hasta_el_final": "Resististe hasta el final en la represión",
+    "sin_documento": "Perdiste tu documento de identidad en el camino",
+    "corte_ruta_ajena": "Te sumaste a cortar una ruta en un barrio que no era el tuyo",
+    "perdiste_un_dia": "Perdiste un día entero lejos de tu casa",
+}
+
+
+def resumen_camino(alineacion: int) -> str:
+    """Etiqueta del "camino" según el eje legal/ilegal acumulado."""
+    if alineacion <= -35:
+        return "fuera de la ley"
+    if alineacion >= 35:
+        return "dentro de la ley"
+    return "ambivalente"
+
+
 @dataclass
 class Dinero:
     """Las tres (o cuatro) formas de "plata" que circulaban en diciembre de 2001."""
@@ -116,6 +159,12 @@ class EstadoJugador:
     # game/engine.py:_chequear_vencimiento_comedor.
     turno_mision_comedor: Optional[int] = None
 
+    # Conjunto de ubicaciones (Nodo.ubicacion en modo historia, estado.ubicacion
+    # en modo libre) distintas por las que pasó el personaje. Sirve solo para
+    # la pantalla de estadísticas finales ("cuántos lugares distintos
+    # recorriste"), no afecta la mecánica del juego.
+    lugares_visitados: Set[str] = field(default_factory=set)
+
     # --- Solo se usan en modo "libre" (game/modo_libre.py) -----------------
     # En modo "historia" la fuente de verdad es el grafo de game/story.py
     # (nodo_actual); en modo "libre" no hay grafo fijo, así que la escena, las
@@ -153,6 +202,32 @@ class EstadoJugador:
         plata = self.dinero.describir()
         return f"{cosas} — {plata}"
 
+    def etiqueta_capitulo(self) -> str:
+        """Ej: "Día 3/7 — 20 de diciembre — el día del estallido"."""
+        etiqueta = CAPITULO_LABEL.get(self.capitulo, "")
+        return f"Día {self.capitulo}/{CAPITULOS_TOTALES} — {etiqueta}"
+
+    def generar_estadisticas(self) -> Dict[str, Any]:
+        """Resumen de cómo se jugó la partida, para mostrar en la pantalla de
+        final (ganado o perdido). Compartido por modo historia y modo libre,
+        ver game/engine.py y game/modo_libre.py."""
+        hitos = [
+            descripcion
+            for flag, descripcion in HITOS_DESCRIPCION.items()
+            if flag in self.flags
+        ]
+        return {
+            "turnos": self.turno,
+            "capitulo": self.capitulo,
+            "dia": self.etiqueta_capitulo(),
+            "camino": resumen_camino(self.alineacion),
+            "alineacion": self.alineacion,
+            "reputacion": self.reputacion_barrial,
+            "dinero_final": self.dinero.describir(),
+            "lugares_recorridos": len(self.lugares_visitados),
+            "hitos": hitos,
+        }
+
     def agregar_item(self, item: str) -> None:
         if item and item not in self.inventario:
             self.inventario.append(item)
@@ -189,6 +264,7 @@ class EstadoJugador:
             "ultima_imagen_url": self.ultima_imagen_url,
             "orden_opciones": list(self.orden_opciones),
             "turno_mision_comedor": self.turno_mision_comedor,
+            "lugares_visitados": sorted(self.lugares_visitados),
             "modo": self.modo,
             "escena_libre": self.escena_libre,
             "dialogos_libres": [list(d) for d in self.dialogos_libres],
@@ -222,6 +298,7 @@ class EstadoJugador:
         estado.ultima_imagen_url = datos.get("ultima_imagen_url", "")
         estado.orden_opciones = list(datos.get("orden_opciones", []))
         estado.turno_mision_comedor = datos.get("turno_mision_comedor")
+        estado.lugares_visitados = set(datos.get("lugares_visitados", []))
         estado.modo = datos.get("modo", "historia")
         estado.escena_libre = datos.get("escena_libre", "")
         estado.dialogos_libres = [tuple(d) for d in datos.get("dialogos_libres", [])]

@@ -88,15 +88,18 @@ def api_intro():
     # resultados mucho más fieles.
     return jsonify({
         "calle": images.build_pollinations_url(
-            "huge angry riot crowd clashing at night in the plaza in front of a pink "
-            "colonial government palace with a central dome, burning barricades, thick "
-            "smoke, cacerolazo protesters banging pots, dramatic wide establishing shot",
+            "a huge angry crowd clashing with police at night in a plaza in front of a "
+            "pink colonial government palace with a central dome, burning barricades, "
+            "thick smoke, cacerolazo protesters banging pots, dramatic wide establishing "
+            "shot",
             ancho=960, alto=540, seed=555,
         ),
         "helicoptero": images.build_pollinations_url(
-            "dramatic night shot of a helicopter with motion-blurred spinning rotor blades "
-            "flying away, large and prominent in frame, the city below covered in smoke "
-            "with an orange fire glow on the horizon, cinematic",
+            "a realistic military utility helicopter, the same general shape as a Bell "
+            "UH-1 Iroquois, with visible spinning rotor blades flying away at dusk, NOT "
+            "futuristic, NOT a spaceship, ordinary real-world aircraft, large and "
+            "prominent in frame, the city below covered in smoke with an orange fire glow "
+            "on the horizon",
             ancho=960, alto=540, seed=321,
         ),
     })

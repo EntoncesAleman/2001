@@ -278,6 +278,9 @@ SYSTEM_PROMPT_LIBRE = (
     "forma:\n"
     "{\n"
     '  "capitulo": 1,\n'
+    '  "ubicacion": "3 a 6 palabras describiendo dónde está el personaje '
+    "ahora, ej. 'Comedor comunitario del barrio' — actualizala cada vez que "
+    'cambie de lugar",\n'
     '  "narracion": "3 a 6 oraciones en segunda persona",\n'
     '  "dialogos": [["Personaje", "línea corta de diálogo"]],\n'
     '  "opciones": ["opción táctica 1", "opción táctica 2", "opción táctica 3"],\n'

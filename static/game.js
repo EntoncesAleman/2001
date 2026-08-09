@@ -105,12 +105,36 @@ const errorAlta = document.getElementById("error-alta");
 let modoElegido = "historia";
 
 const imagenEscena = document.getElementById("imagen-escena");
+
+// Pollinations a veces devuelve error (rate-limit u otro hipo transitorio) en
+// un turno normal, no solo en la intro. Sin este manejo, la imagen queda rota
+// (ícono de imagen caída) sin que el jugador entienda qué pasó. Reintentamos
+// una vez con un parámetro para evitar caché, y si vuelve a fallar la
+// ocultamos prolijamente en vez de dejar el ícono roto.
+let imagenReintentada = false;
+imagenEscena.addEventListener("error", () => {
+  if (!imagenEscena.src) return;
+  if (!imagenReintentada) {
+    imagenReintentada = true;
+    const separador = imagenEscena.src.includes("?") ? "&" : "?";
+    setTimeout(() => {
+      imagenEscena.src = `${imagenEscena.src}${separador}retry=${Date.now()}`;
+    }, 1200);
+  } else {
+    imagenEscena.hidden = true;
+    imagenEscena.removeAttribute("src");
+  }
+});
 const narracionEl = document.getElementById("narracion");
 const dialogosEl = document.getElementById("dialogos");
 const mensajeEfectoEl = document.getElementById("mensaje-efecto");
 const panelEstadoEl = document.getElementById("panel-estado");
 const bloqueFinal = document.getElementById("bloque-final");
 const etiquetaFinal = document.getElementById("etiqueta-final");
+const bloqueEstadisticas = document.getElementById("bloque-estadisticas");
+const listaEstadisticas = document.getElementById("lista-estadisticas");
+const estadisticasHitosTitulo = document.getElementById("estadisticas-hitos-titulo");
+const listaHitos = document.getElementById("lista-hitos");
 const bloqueOpciones = document.getElementById("bloque-opciones");
 const listaOpciones = document.getElementById("lista-opciones");
 const formLibre = document.getElementById("form-libre");
@@ -337,6 +361,7 @@ function renderVista(vista) {
   errorAccion.hidden = true;
 
   if (vista.imagen_url) {
+    imagenReintentada = false;
     imagenEscena.src = vista.imagen_url;
     imagenEscena.hidden = false;
   } else {
@@ -373,6 +398,8 @@ function renderVista(vista) {
   const linea = "-".repeat(50);
   panelEstadoEl.textContent =
     `${linea}\n` +
+    `🗓️  ${panel.dia || ""}\n` +
+    `🎯 Misión: ${panel.mision || ""}\n` +
     `📍 Ubicación: ${panel.ubicacion}\n` +
     `🎒 Inventario/Recursos: ${panel.inventario}\n` +
     `⚠️  Estado/Salud: ${panel.salud}\n` +
@@ -382,6 +409,7 @@ function renderVista(vista) {
     bloqueOpciones.hidden = true;
     bloqueFinal.hidden = false;
     etiquetaFinal.textContent = ETIQUETAS_FINAL[vista.final_tipo] || "FIN DE LA PARTIDA";
+    mostrarEstadisticas(vista.estadisticas);
   } else {
     bloqueFinal.hidden = true;
     bloqueOpciones.hidden = false;
@@ -394,6 +422,40 @@ function renderVista(vista) {
       listaOpciones.appendChild(boton);
     });
     inputLibre.value = "";
+  }
+}
+
+function mostrarEstadisticas(stats) {
+  if (!stats) {
+    bloqueEstadisticas.hidden = true;
+    return;
+  }
+  bloqueEstadisticas.hidden = false;
+  listaEstadisticas.innerHTML = "";
+  const filas = [
+    `🗓️ Llegaste a: ${stats.dia}`,
+    `🧭 Camino recorrido: ${stats.camino} (alineación ${stats.alineacion >= 0 ? "+" : ""}${stats.alineacion})`,
+    `🤝 Reputación barrial final: ${stats.reputacion}`,
+    `💰 Terminaste con: ${stats.dinero_final}`,
+    `🚶 Lugares distintos recorridos: ${stats.lugares_recorridos}`,
+    `⏱️ Turnos jugados: ${stats.turnos}`,
+  ];
+  filas.forEach((texto) => {
+    const li = document.createElement("li");
+    li.textContent = texto;
+    listaEstadisticas.appendChild(li);
+  });
+
+  listaHitos.innerHTML = "";
+  if (stats.hitos && stats.hitos.length) {
+    estadisticasHitosTitulo.hidden = false;
+    stats.hitos.forEach((texto) => {
+      const li = document.createElement("li");
+      li.textContent = `• ${texto}`;
+      listaHitos.appendChild(li);
+    });
+  } else {
+    estadisticasHitosTitulo.hidden = true;
   }
 }
 

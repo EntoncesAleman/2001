@@ -128,6 +128,11 @@ def _aplicar_respuesta(estado: EstadoJugador, respuesta: Dict[str, Any]) -> None
 
     estado.salud_clamp()
 
+    ubicacion_reportada = str(respuesta.get("ubicacion") or "").strip()
+    if ubicacion_reportada:
+        estado.ubicacion = ubicacion_reportada[:120]
+    estado.lugares_visitados.add(estado.ubicacion)
+
     estado.escena_libre = str(respuesta.get("narracion") or "").strip() or "..."
 
     dialogos_crudos = respuesta.get("dialogos") or []
@@ -217,7 +222,10 @@ def vista_actual_libre(estado: EstadoJugador) -> Dict[str, Any]:
             "inventario": estado.descripcion_inventario(),
             "salud": estado.descripcion_salud(),
             "dinero": estado.dinero.describir(),
+            "dia": estado.etiqueta_capitulo(),
+            "mision": estado.objetivo,
         },
+        "estadisticas": estado.generar_estadisticas() if estado.es_final_libre else None,
         "mensaje_error": None,
         "mensaje_efecto": None,
         "mensaje_libre": None,
