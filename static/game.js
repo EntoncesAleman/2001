@@ -113,7 +113,12 @@ const imagenEscena = document.getElementById("imagen-escena");
 // ocultamos prolijamente en vez de dejar el ícono roto.
 let imagenReintentada = false;
 imagenEscena.addEventListener("error", () => {
-  if (!imagenEscena.src) return;
+  // Ojo acá: `imagenEscena.src` (la propiedad) resuelve a la URL absoluta
+  // de la página misma cuando no hay atributo `src` puesto, así que da
+  // "verdadero" igual y este chequeo no alcanza para descartar un error
+  // espurio en un turno sin imagen. `getAttribute("src")` sí devuelve null
+  // en ese caso.
+  if (!imagenEscena.getAttribute("src") || imagenEscena.hidden) return;
   if (!imagenReintentada) {
     imagenReintentada = true;
     const separador = imagenEscena.src.includes("?") ? "&" : "?";

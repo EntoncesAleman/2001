@@ -203,6 +203,14 @@ button:active {
   box-shadow: 0 0 20px rgba(30, 58, 122, 0.8);
 }
 
+/* Sin esto, el atributo HTML `hidden` no alcanza a ganarle a la regla de
+   arriba (misma especificidad, pero la del navegador para [hidden] va
+   primero en la cascada): cuando un nodo no tiene imagen, el <img> quedaba
+   "oculto" solo de nombre y se veía el ícono de imagen rota en su lugar. */
+.imagen-escena[hidden] {
+  display: none;
+}
+
 .narracion {
   font-size: 1.3rem;
   line-height: 1.55;
